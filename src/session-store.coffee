@@ -18,8 +18,11 @@ isArray = (val) ->
 guid = ->
   (Math.random() * Math.pow(2, 32)).toString 16
 
+
+objs = {}
 #Constructor
 module.exports = class P2PStore extends connect.session.Store
+
   name: "P2PStore"
   constructor: (options) ->
     @err "Must specify options"  unless options
@@ -36,17 +39,18 @@ module.exports = class P2PStore extends connect.session.Store
   propogate: (data) ->
     @peers.pass data
 
-  get: (sid, fn) ->
-    @log "get: #{sid}"
-    fn null, @sessions[sid]
 
   setSession: (sid, sess) ->
     @log "set: #{sid}"
-    if @sessions[sid]
-      _.merge @sessions[sid], sess
-    else
-      @sessions[sid] = sess
+    # if @sessions[sid]
+    #   _.merge @sessions[sid], sess
+    # else
+    @sessions[sid] = sess
     null
+
+  get: (sid, fn) ->
+    @log "get: #{sid}"
+    fn null, @sessions[sid]
 
   set: (sid, sess, fn) ->
     return unless fn
