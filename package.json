@@ -4,7 +4,8 @@
   "description": "Peer-to-Peer Session Store for Connect and Express",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "./node_modules/coffee-script/bin/coffee -b -w -o out/ src/"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,11 @@
   "license": "MIT",
   "readmeFilename": "README.md",
   "dependencies": {
-    "lodash": "~1.2.1"
+    "lodash": "~1.2.1",
+    "difflet": "~0.2.5",
+    "connect": "~2.7.9"
+  },
+  "devDependencies": {
+    "coffee-script": "~1.6.2"
   }
 }
