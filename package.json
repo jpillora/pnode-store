@@ -4,7 +4,7 @@
   "description": "Peer-to-Peer Session Store for Connect and Express",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "./node_modules/mocha/bin/mocha",
     "start": "./node_modules/coffee-script/bin/coffee -b -w -o out/ src/"
   },
   "repository": {
@@ -29,6 +29,10 @@
     "connect": "~2.7.9"
   },
   "devDependencies": {
-    "coffee-script": "~1.6.2"
+    "coffee-script": "~1.6.2",
+    "mocha": "~1.9.0",
+    "should": "~1.2.2",
+    "chai": "~1.6.0",
+    "async": "~0.2.8"
   }
 }
