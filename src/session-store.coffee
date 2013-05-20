@@ -6,13 +6,23 @@
 #   secret: 'secret'
 # }));
 
+
+
 connect = require("connect")
 _ = require("lodash")
 difflet = require("difflet")
 Peers = require("./peers")
 
 #helpers
-guid = -> (Math.random() * Math.pow(2, 32)).toString 16
+guid = ->
+  (Math.random() * Math.pow(2, 32)).toString 16
+
+# mem = ->
+#   console.log _.map(process.memoryUsage(), (val, name) ->
+#     name + ': ' + (Math.round(val / 1024 / 1024* 100) / 100) + ' MB'
+#   , null, 2).join(', ')
+
+# setInterval mem, 5000
 
 #Constructor
 module.exports = class P2PStore extends connect.session.Store

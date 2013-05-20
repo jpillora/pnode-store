@@ -1,7 +1,8 @@
 
 var createServer = require('./create-server');
 
-var port = Number(process.argv[2]),
-    ports = process.argv.slice(3).map(Number);
+var peers = process.argv.slice(2).map(Number),
+    port = peers.shift(),
+    peerPort = peers.shift();
 
-createServer(port, port+1, ports);
+createServer(port, peerPort, peers);
