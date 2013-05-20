@@ -14,13 +14,22 @@ function createServer(port, peerPort, peers, callback) {
       peers: peers
     });
 
+  app.use(express.bodyParser());
+  app.use(express.cookieParser(false));
   app.use(express.session(sessionOpts));
 
   app.get('/', function(req, res) {
-    res.send("hello world");
+    res.send(req.session.user || 'anon');
+  });
+  app.get('/login', function(req, res) {
+    req.session.user = { foo: "bar" };
+    res.send("login!");
+  });
+  app.get('/logout', function(req, res) {
+    req.session.destroy();
+    res.send("logout!");
   });
 
-  console.log("HTTP on " + port + " and UDP on " + peerPort);
   return app.listen(port, callback);
 }
 

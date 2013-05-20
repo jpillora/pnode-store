@@ -29,6 +29,7 @@ module.exports = P2PStore = (function(_super) {
       this.err("Must specify a port");
     }
     _.bindAll(this);
+    this.host = "localhost";
     this.port = options.port;
     this.peers = new Peers(this, options.peers);
     this.sessions = {};
@@ -42,11 +43,14 @@ module.exports = P2PStore = (function(_super) {
 
   P2PStore.prototype.set = function(sid, sess, fn) {
     this._set(sid, sess);
-    if (!fn) {
-      return;
+    this.peers.send({
+      method: "set",
+      sid: sid,
+      sess: sess
+    });
+    if (fn) {
+      return fn(null);
     }
-    this.peers.send("set", sid, sess);
-    return fn(null);
   };
 
   P2PStore.prototype._set = function(sid, sess) {
@@ -57,11 +61,13 @@ module.exports = P2PStore = (function(_super) {
 
   P2PStore.prototype.destroy = function(sid, fn) {
     this._destroy(sid);
-    if (!fn) {
-      return;
+    this.peers.send({
+      method: "destroy",
+      sid: sid
+    });
+    if (fn) {
+      return fn(null);
     }
-    this.peers.send("destroy", sid);
-    return fn(null);
   };
 
   P2PStore.prototype._destroy = function(sid) {

@@ -14,7 +14,6 @@ Peers = require("./peers")
 #helpers
 guid = -> (Math.random() * Math.pow(2, 32)).toString 16
 
-
 #Constructor
 module.exports = class P2PStore extends connect.session.Store
 
@@ -27,6 +26,7 @@ module.exports = class P2PStore extends connect.session.Store
 
     _.bindAll @
 
+    @host = "localhost"
     @port = options.port
     @peers = new Peers @, options.peers
     @sessions = {}
@@ -39,9 +39,8 @@ module.exports = class P2PStore extends connect.session.Store
 
   set: (sid, sess, fn) ->
     @_set sid, sess
-    return unless fn
-    @peers.send "set", sid, sess
-    fn null
+    @peers.send { method: "set", sid, sess }
+    fn null if fn
 
   _set: (sid, sess) ->
     @log "set: #{sid}"
@@ -50,9 +49,8 @@ module.exports = class P2PStore extends connect.session.Store
 
   destroy: (sid, fn) ->
     @_destroy sid
-    return unless fn
-    @peers.send "destroy", sid
-    fn null
+    @peers.send { method: "destroy", sid }
+    fn null if fn
 
   _destroy: (sid) ->
     @log "delete: #{sid}"

@@ -5,31 +5,40 @@ upnode = require('upnode')
 
 #private
 class Peer extends Base
-  name: "Peer "
-  constructor: (@store, dest) ->
+  name: "Peer"
+  constructor: (@peers, dest) ->
     m = String(dest).match(/^((.+):)?(\d+)$/)
     @err "Invalid destination: '#{dest}'" unless m
     @host = m[2] or "localhost"
     @port = parseInt(m[3], 10)
-    @log "create #{@host}:#{@port}"
+    @log " <<NEW>> peer #{@host}:#{@port}"
+
+    @wrapper =
+      src: @peers.id()
 
     #client dnode connection
     @client = upnode.connect @port
     @client.on "up", (remote) =>
-      @log "connected to #{@port}"
-      @send {hello:'world'}
+      # @log "connected to #{@port}"
+      @peers.send {setup:@id()}
 
     @client.on "down", =>
       @log "lost connection to #{@port}"
 
     @client.on "reconnect", =>
-      @log "trying #{@port}..."
+      # @log "trying #{@port}..."
 
-  send: (args) ->
-    method = args.shift()
-    args.push (t) => @log "t: #{t}"
+  id: ->
+    (if @host then @host + ':' else '')+@port
+
+  send: (data) ->
     @client (remote) =>
-      remote[method].apply remote, args
+      remote.handle _.extend {
+        data, peers: @peers.ids()
+      }, @wrapper
+
+  toString: ->
+    "#{@peers}#{@name}: "
 
 #public
 module.exports = class Peers extends Base
@@ -37,24 +46,58 @@ module.exports = class Peers extends Base
   constructor: (@store, peers = []) ->
     @log "create peers"
     _.bindAll @
-    @peers = []
+    @array = []
     _.each peers, @add
 
     store = @store
-    @server = upnode (client, conn) ->
-      this.set = store._set
-      this.destory = store._destroy
+    setup = @setup
+    @server = upnode -> setup this
+    @server.listen @store.port, =>
+      @spread()
+      @log "peer server listening on #{@store.port}"
 
-    @server.listen @store.port
-    @log "dnode server listening on #{@store.port}"
+  setup: (server) ->
+    server.handle = @handle
+
+  spread: ->
+    setTimeout =>
+      @send {setup:@id()}
+    , 1000
 
   add: (destination) ->
-    @peers.push new Peer(@store, destination)
+    @array.push new Peer(@, destination)
+
+  handle: (wrapper) ->
+
+    data = wrapper.data
+    if data.method is 'set'
+      @store._set data.sid, data.sess
+    else if data.method is 'destroy'
+      @store._destroy data.sid
+
+    peers = wrapper.peers or []
+    for p in peers
+      if not @hasPeer p
+        @add p
+
+    id = wrapper.src
+    if id and not @hasPeer id
+      @add id
+
+  hasPeer: (id) ->
+    return true if @id() is id
+    id in @ids()
+
+  id: ->
+    (if @store.host then @store.host + ':' else '')+@store.port
+
+  ids: ->
+    @array.map (p) -> p.id()
 
   #setAll
-  send: ->
-    args = _.toArray arguments
-    @peers.forEach (p) -> p.send args
+  send: (data) ->
+    for p in @array
+      p.send data
 
 
 
