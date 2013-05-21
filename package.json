@@ -4,9 +4,9 @@
   "description": "Peer-to-Peer Session Store for Connect and Express",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha",
-    "start": "./node_modules/coffee-script/bin/coffee -b -w -o out/ src/",
-    "prepublish": "./node_modules/coffee-script/bin/coffee -b -o out/ src/"
+    "test": "node_modules/mocha/bin/mocha",
+    "start": "node_modules/coffee-script/bin/coffee -b -w -o out/ src/",
+    "prepublish": "node_modules/coffee-script/bin/coffee -b -o out/ src/"
   },
   "repository": {
     "type": "git",
