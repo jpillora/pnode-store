@@ -24,6 +24,14 @@ guid = ->
 
 # setInterval mem, 5000
 
+os = require "os"
+getLocalIp = (regex) ->
+  for name, addrs of os.networkInterfaces()
+    for addr in addrs
+      if addr.family is 'IPv4' and (not regex or regex.test addr.address)
+        return addr.address
+  return null
+
 #Constructor
 module.exports = class P2PStore extends connect.session.Store
 
@@ -36,12 +44,11 @@ module.exports = class P2PStore extends connect.session.Store
 
     _.bindAll @
 
-    @host = "localhost"
+    @host = getLocalIp(/^172/) or "127.0.0.1"
     @port = options.port
     @peers = new Peers @, options.peers
     @sessions = {}
     @lasts = {}
-
 
   get: (sid, fn) ->
     @log "get: #{sid}"
@@ -67,6 +74,6 @@ module.exports = class P2PStore extends connect.session.Store
     delete @sessions[sid]
     null
 
-  toString: -> "#{@name}: #{@port}: "
+  toString: -> "#{@host}:#{@port}: "
   err: (str) -> throw new Error "#{@}#{str}"
   log: -> console.log.apply console, [@.toString()].concat _.toArray arguments

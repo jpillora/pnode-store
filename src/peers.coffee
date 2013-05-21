@@ -9,7 +9,7 @@ class Peer extends Base
   constructor: (@peers, dest) ->
     m = String(dest).match(/^((.+):)?(\d+)$/)
     @err "Invalid destination: '#{dest}'" unless m
-    @host = m[2] or "localhost"
+    @host = m[2] or @peers.store.host
     @port = parseInt(m[3], 10)
     @log " <<NEW>> peer #{@host}:#{@port}"
 

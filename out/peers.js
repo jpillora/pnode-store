@@ -24,7 +24,7 @@ Peer = (function(_super) {
     if (!m) {
       this.err("Invalid destination: '" + dest + "'");
     }
-    this.host = m[2] || "localhost";
+    this.host = m[2] || this.peers.store.host;
     this.port = parseInt(m[3], 10);
     this.log(" <<NEW>> peer " + this.host + ":" + this.port);
     this.wrapper = {
