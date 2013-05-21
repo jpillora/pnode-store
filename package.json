@@ -1,6 +1,6 @@
 {
   "name": "p2p-session-store",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Peer-to-Peer Session Store for Connect and Express",
   "main": "index.js",
   "scripts": {
