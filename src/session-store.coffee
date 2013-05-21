@@ -44,7 +44,7 @@ module.exports = class P2PStore extends connect.session.Store
 
     _.bindAll @
 
-    @host = getLocalIp(/^172/) or "127.0.0.1"
+    @host = getLocalIp(/^192\.168\.240\./) or "127.0.0.1"
     @port = options.port
     @peers = new Peers @, options.peers
     @sessions = {}

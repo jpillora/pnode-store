@@ -19,14 +19,14 @@ class Peer extends Base
     #client dnode connection
     @client = upnode.connect @port
     @client.on "up", (remote) =>
-      # @log "connected to #{@port}"
+      @log "connected to #{@port}"
       @peers.send {setup:@id()}
 
     @client.on "down", =>
       @log "lost connection to #{@port}"
 
     @client.on "reconnect", =>
-      # @log "trying #{@port}..."
+      @log "trying #{@port}..."
 
   id: ->
     (if @host then @host + ':' else '')+@port
