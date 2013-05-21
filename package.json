@@ -14,12 +14,14 @@
   },
   "keywords": [
     "p2p",
+    "peer",
     "peer-to-peer",
     "session-store",
     "session",
     "store",
     "connect",
-    "express"
+    "express",
+    "dnode"
   ],
   "author": "Jaime Pillora",
   "license": "MIT",
