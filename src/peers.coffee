@@ -11,22 +11,22 @@ class Peer extends Base
     @err "Invalid destination: '#{dest}'" unless m
     @host = m[2] or @peers.store.host
     @port = parseInt(m[3], 10)
-    @log " <<NEW>> peer #{@host}:#{@port}"
+    @log " <<NEW>> peer"
 
     @wrapper =
       src: @peers.id()
 
     #client dnode connection
-    @client = upnode.connect @port
+    @client = upnode.connect @port, @host
     @client.on "up", (remote) =>
-      @log "connected to #{@port}"
+      @log "connected"
       @peers.send {setup:@id()}
 
     @client.on "down", =>
-      @log "lost connection to #{@port}"
+      @log "lost connection"
 
     @client.on "reconnect", =>
-      @log "trying #{@port}..."
+      @log "trying..."
 
   id: ->
     (if @host then @host + ':' else '')+@port
@@ -38,7 +38,7 @@ class Peer extends Base
       }, @wrapper
 
   toString: ->
-    "#{@peers}#{@name}: "
+    "#{@peers}#{@name}: #{@id()}: "
 
 #public
 module.exports = class Peers extends Base
