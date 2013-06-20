@@ -1,6 +1,6 @@
 {
   "name": "p2p-session-store",
-  "version": "0.0.2",
+  "version": "0.3.0",
   "description": "Peer-to-Peer Session Store for Connect and Express",
   "main": "index.js",
   "scripts": {
@@ -28,9 +28,9 @@
   "readmeFilename": "README.md",
   "dependencies": {
     "lodash": "~1.2.1",
-    "difflet": "~0.2.5",
     "connect": "~2.7.9",
-    "upnode": "~0.4.3"
+    "upnode": "~0.4.3",
+    "mkdirp": "~0.3.5"
   },
   "devDependencies": {
     "coffee-script": "~1.6.2",

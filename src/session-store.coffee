@@ -10,7 +10,10 @@
 
 connect = require("connect")
 _ = require("lodash")
-difflet = require("difflet")
+fs = require("fs")
+path = require("path")
+mkdirp = require("mkdirp")
+# difflet = require("difflet")
 Peers = require("./peers")
 
 #helpers
@@ -43,16 +46,23 @@ module.exports = class P2PStore extends connect.session.Store
     @err "Must specify a port"  unless options.port
 
     _.bindAll @
+    @_persist = _.debounce @_persist, options.persistDelay or 5000
 
     @host = getLocalIp(options.subnet or /^172\./) or "127.0.0.1"
     @port = options.port
     @peers = new Peers @, options.peers
-    @sessions = {}
+    @debug = options.debug or false
+    @tmpDir = path.join process.cwd(), 'tmp'
+    @dataFile = path.join @tmpDir, 'data.json'
+    @data = @_restore() or {
+      user: {}
+      sessions: {}
+    }
     @lasts = {}
 
   get: (sid, fn) ->
     @log "get: #{sid}"
-    fn null, @sessions[sid]
+    fn null, @data.sessions[sid]
 
   set: (sid, sess, fn) ->
     @_set sid, sess
@@ -61,7 +71,8 @@ module.exports = class P2PStore extends connect.session.Store
 
   _set: (sid, sess) ->
     @log "set: #{sid}"
-    @sessions[sid] = sess
+    @data.sessions[sid] = sess
+    @_persist()
     null
 
   destroy: (sid, fn) ->
@@ -71,9 +82,43 @@ module.exports = class P2PStore extends connect.session.Store
 
   _destroy: (sid) ->
     @log "delete: #{sid}"
-    delete @sessions[sid]
+    delete @data.sessions[sid]
+    @_persist()
     null
+
+  setData: (key, obj) ->
+    @data.user[key] = obj
+    @_persist()
+
+  getData: (key) ->
+    @data.user[key]
+
+  _persist: ->
+    json = JSON.stringify @data
+    return if json is @_persisted
+    fs.writeFile @dataFile, json, (err) =>
+      if err
+        @log "error persisting data store: #{err}"
+      else
+        @log "data store persisted"
+        @_persisted = json
+
+  _restore: ->
+    mkdirp.sync @tmpDir
+    return null unless fs.existsSync @dataFile
+    json = fs.readFileSync @dataFile
+    return unless json
+    try
+      data = JSON.parse json
+      @log "data store restored"
+      @_persisted = json
+      return data
+    catch e
+
+    return null
 
   toString: -> "#{@host}:#{@port}: "
   err: (str) -> throw new Error "#{@}#{str}"
-  log: -> console.log.apply console, [@.toString()].concat _.toArray arguments
+  log: ->
+    return unless @debug
+    console.log.apply console, [@.toString()].concat _.toArray arguments

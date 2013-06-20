@@ -8,4 +8,5 @@ module.exports = class Base
   err: (str) ->
     throw new Error "#{@}#{str}"
   log: ->
+    return unless @store.debug
     console.log.apply console, [@toString()].concat _.toArray arguments
