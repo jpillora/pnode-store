@@ -1,5 +1,5 @@
 
-_ = require("lodash")
+_ = require("underscore")
 Base = require("./base")
 upnode = require('upnode')
 

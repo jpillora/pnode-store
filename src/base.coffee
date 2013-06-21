@@ -1,5 +1,5 @@
 
-_ = require("lodash")
+_ = require("underscore")
 
 module.exports = class Base
   name: "Base"

@@ -9,7 +9,7 @@
 
 
 connect = require("connect")
-_ = require("lodash")
+_ = require("underscore")
 fs = require("fs")
 path = require("path")
 mkdirp = require("mkdirp")
