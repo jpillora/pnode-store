@@ -39,7 +39,7 @@ var addRandom = function() {
 var check = function() {
   console.log('check!');
   var client = store.server.clients[PeerStore.helper.getIp()+':12000'];
-  if(!client) return;
+  if(!client) return process.exit(1);
   console.log('getall on ', client.id);
 
   store.buckets.get('foo').getAll(function(err, thisObj) {
