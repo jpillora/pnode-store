@@ -1,1 +1,1 @@
-module.exports = require('./out/store');
+module.exports = require('./out/peer-store');

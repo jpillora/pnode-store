@@ -1,118 +1,121 @@
 
-_ = require("underscore")
+_ = require("lodash")
 Base = require("./base")
 helper = require("./helper")
+CommsClient = require("./comms-client")
 upnode = require('upnode')
+async = require('async')
 
-#private
-class Peer extends Base
-  name: "Peer"
-  constructor: (@comms, dest) ->
-
-    {@host, @port} = helper.parseDestination dest
-
-    unless @host and @port
-      @err "Invalid destination: '#{dest}'"
-      return null
-
-    @destination = @id = "#{@host}:#{@port}"
-
-    @log "create"
-
-    @wrapper =
-      src: @comms.source
-
-    #list of buckets
-    @buckets = {}
-
-    #client dnode connection
-    @client = upnode.connect @port, @host
-    @client.on "up", (remote) =>
-      @log "connected"
-      @comms.add remote.source
-      @peers.send {setup:@id()}
-
-    @client.on "down", =>
-      @log "disconnected"
-
-    @client.on "reconnect", =>
-      @log "retrying..."
-
-  send: (data) ->
-    @client (remote) =>
-      remote.handle _.extend {
-        data, peers: @peers.ids()
-      }, @wrapper
-
-#public
+#public - reciever
 module.exports = class CommsServer extends Base
 
   name: "CommsServer"
 
-  constructor: (@store, peers = []) ->
-    @log "create"
+  constructor: (@store) ->
     
     @host = helper.getIp()
     @port = @store.opts.port
-    @source = @id = "#{@host}:#{@port}"
+    @id = "#{@host}:#{@port}"
+
+    @log "create"
 
     _.bindAll @
-    
-    @array = []
-    peers.forEach @add
 
-    #build api
-    api = _.pick @, 'handle', 'source'
+    #clients
+    @clients = {}
+    @store.opts.peers?.forEach @add
 
-    @server = upnode =>
-      #give connection an api
-      return api
+    #provide to client
+    #api data
+    @api = source: @id
+    #api methods
+    for name, fn of @apiMethods
+      @api[name] = fn.bind @
+
+    #give connection the api
+    @server = upnode (remote, d) =>
+      #when a client connects to us
+      d.on 'remote', =>
+        @add remote.source
+        remote.peers.forEach @add
+        @store.buckets.on 'set', remote.addBucket
+
+      #update bucket set
+      @api.initBuckets = @store.buckets.keys()
+      return @api
 
     @server.listen @port, =>
-      @spread()
-      @log "listening on #{@port}"
+      @log "listening..."
 
-  spread: ->
-    setTimeout =>
-      @send {setup:@id()}
-    , 1000
+    #forceful kill of the server
+    @server.on 'end', =>
+      @log "unlistening..."
+      for dest, peer of @clients
+        peer.client.close()
 
-  add: (destination) ->
-    @array.push new Peer(@, destination)
+  add: (dest) ->
+    if dest is @id or @clients[dest]
+      # @log "Peer at '#{dest}' already exists"
+      return false
 
-  #send all
-  send: (data) ->
-    for p in @array
-      p.send data
+    {host, port} = helper.parseDestination dest
 
+    unless host and port
+      @log "Invalid destination '#{dest}'"
+      return false
 
-  handle: (wrapper) ->
+    @clients[dest] = new CommsClient(@, host, port)
+    # @log "added: '#{dest}' (##{_.keys(@clients).length})"
+    true
 
-    data = wrapper.data
-    if data.method is 'set'
-      @store._set data.sid, data.sess
-    else if data.method is 'destroy'
-      @store._destroy data.sid
+  remove: (dest) ->
+    return unless @clients[dest]
+    delete @clients[dest]
+    @log "removed: '#{dest}'"
 
-    peers = wrapper.peers or []
-    for p in peers
-      if not @hasPeer p
-        @add p
+  #broadcast set
+  set: (bucketName, key, value, callback) ->
+    sets = []
+    _.each @clients, (client, dest) ->
+      return unless client.buckets[bucketName]
+      sets.push (cb) -> client.remote.set(bucketName, key, value, cb)
+    async.parallel sets, callback
 
-    id = wrapper.src
-    if id and not @hasPeer id
-      @add id
+  #broadcast delete
+  del: (bucketName, key, callback) ->
+    dels = []
+    _.each @clients, (client, dest) ->
+      return unless client.buckets[bucketName]
+      dels.push (cb) -> client.remote.del(bucketName, key, cb)
+    async.parallel dels, callback
 
-  hasPeer: (id) ->
-    return true if @id() is id
-    id in @ids()
+  #expose methods to client
+  #clients directly set and delete! (do not trigger further broadcasts)
+  apiMethods:
 
-  id: ->
-    (if @store.host then @store.host + ':' else '')+@store.port
+    getAll: (bucketName, callback) ->
 
-  ids: ->
-    @array.map (p) -> p.id()
+      @log "GETALL", arguments
 
+      bucket = @store.buckets.get bucketName
+      unless bucket
+        return callback "has no bucket: #{bucketName}"
+      unless bucket.getAll
+        return callback "has no getAll"
+
+      bucket.getAll callback
+    #execute an operation on a given bucket
+    set: (bucketName, key, val, callback) ->
+      bucket = @store.buckets.get bucketName
+      unless bucket
+        return callback "has no bucket: #{bucketName}"
+      bucket.backendSet key, val, callback
+
+    del: (bucketName, key, callback) ->
+      bucket = @store.buckets.get bucketName
+      unless bucket
+        return callback "has no bucket: #{bucketName}"
+      bucket.backendDel key, callback
 
 
 

@@ -1,19 +1,19 @@
-_ = require("underscore")
+_ = require("lodash")
 fs = require("fs")
 path = require("path")
 mkdirp = require("mkdirp")
 CommsServer = require("./comms-server")
 helper = require("./helper")
-LRUBucket = require("./buckets/lru-bucket")
 Base = require("./base")
+Bucket = require("./Bucket")
+Set = require("./set")
 
 defaults =
   debug: true
   port: 7557
-  bucketType: LRUBucket
 
 #Constructor
-module.exports = class PeerStore extends Base
+PeerStore = class PeerStore extends Base
   name: "PeerStore"
   constructor: (options) ->
 
@@ -26,20 +26,26 @@ module.exports = class PeerStore extends Base
     @store = { opts: @opts }
 
     _.bindAll @
-    @buckets = {}
-    @peers = new CommsServer @
+    @buckets = new Set()
 
-  addBucket: (name, opts, callback) ->
-    if @getBucket name
-      @err "Bucket already exists: #{name}"
-    
-    @buckets[name] = @opts.bucketType.create opts
+    @defaultBucket = @bucket "default-peer-store"
+    _.extend @, _.pick @defaultBucket, 'get', 'set', 'del'
 
-    #prefill bucket
-    #...
-    #callback...
+    @server = new CommsServer @
 
-    return null
+  #get and insert a bucket with opts
+  bucket: (name, opts) ->
+    bucket = @buckets.get name
+    return bucket if bucket
+    #create a new bucket
+    bucket = new Bucket @, name, opts
+    @buckets.set name, bucket
+    return bucket
 
-  getBucket: (name) ->
-    @buckets[name]
+  sessionStore: ->
+    null
+
+#exports
+PeerStore.helper = helper
+module.exports = PeerStore
+

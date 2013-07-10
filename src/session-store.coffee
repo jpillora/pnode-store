@@ -6,14 +6,9 @@
 #   secret: 'secret'
 # }));
 
-
-
 connect = require("connect")
-_ = require("underscore")
+_ = require("lodash")
 Base = require("./base")
-fs = require("fs")
-path = require("path")
-mkdirp = require("mkdirp")
 
 #Constructor
 class SessionStore extends connect.session.Store
@@ -29,8 +24,6 @@ class SessionStore extends connect.session.Store
   destroy: (sid, fn) ->
 
 #also extend base
-SessionStore::log = Base::log
-SessionStore::err = Base::err
-SessionStore::toString = Base::toString
+Base.mixin SessionStore
 
 module.exports = SessionStore

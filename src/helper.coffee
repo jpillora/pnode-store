@@ -22,7 +22,9 @@ exports.guid = ->
   (Math.random() * Math.pow(2, 32)).toString 16
 
 exports.parseDestination = (str) ->
-  /^(.+)(:(\d+))?$/.test(str) and { host: RegExp.$1, port: parseInt RegExp.$3, 10 }
+  if /^(.+?)(:(\d+))?$/.test(str)
+    return { host: RegExp.$1, port: parseInt RegExp.$3, 10 }
+  return {}
 
 # mem = ->
 #   console.log _.map(process.memoryUsage(), (val, name) ->
