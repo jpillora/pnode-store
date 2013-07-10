@@ -1,35 +1,42 @@
 
 _ = require("underscore")
 Base = require("./base")
+helper = require("./helper")
 upnode = require('upnode')
 
 #private
 class Peer extends Base
   name: "Peer"
-  constructor: (@peers, dest) ->
-    m = String(dest).match(/^((.+):)?(\d+)$/)
-    @err "Invalid destination: '#{dest}'" unless m
-    @host = m[2] or @peers.store.host
-    @port = parseInt(m[3], 10)
-    @log " <<NEW>> peer"
+  constructor: (@comms, dest) ->
+
+    {@host, @port} = helper.parseDestination dest
+
+    unless @host and @port
+      @err "Invalid destination: '#{dest}'"
+      return null
+
+    @destination = @id = "#{@host}:#{@port}"
+
+    @log "create"
 
     @wrapper =
-      src: @peers.id()
+      src: @comms.source
+
+    #list of buckets
+    @buckets = {}
 
     #client dnode connection
     @client = upnode.connect @port, @host
     @client.on "up", (remote) =>
       @log "connected"
+      @comms.add remote.source
       @peers.send {setup:@id()}
 
     @client.on "down", =>
-      @log "lost connection"
+      @log "disconnected"
 
     @client.on "reconnect", =>
-      @log "trying..."
-
-  id: ->
-    (if @host then @host + ':' else '')+@port
+      @log "retrying..."
 
   send: (data) ->
     @client (remote) =>
@@ -37,27 +44,33 @@ class Peer extends Base
         data, peers: @peers.ids()
       }, @wrapper
 
-  toString: ->
-    "#{@peers}#{@name}: #{@id()}: "
-
 #public
-module.exports = class Peers extends Base
-  name: "Peers"
+module.exports = class CommsServer extends Base
+
+  name: "CommsServer"
+
   constructor: (@store, peers = []) ->
-    @log "create peers"
+    @log "create"
+    
+    @host = helper.getIp()
+    @port = @store.opts.port
+    @source = @id = "#{@host}:#{@port}"
+
     _.bindAll @
+    
     @array = []
-    _.each peers, @add
+    peers.forEach @add
 
-    store = @store
-    setup = @setup
-    @server = upnode -> setup this
-    @server.listen @store.port, =>
+    #build api
+    api = _.pick @, 'handle', 'source'
+
+    @server = upnode =>
+      #give connection an api
+      return api
+
+    @server.listen @port, =>
       @spread()
-      @log "peer server listening on #{@store.port}"
-
-  setup: (server) ->
-    server.handle = @handle
+      @log "listening on #{@port}"
 
   spread: ->
     setTimeout =>
@@ -66,6 +79,12 @@ module.exports = class Peers extends Base
 
   add: (destination) ->
     @array.push new Peer(@, destination)
+
+  #send all
+  send: (data) ->
+    for p in @array
+      p.send data
+
 
   handle: (wrapper) ->
 
@@ -93,11 +112,6 @@ module.exports = class Peers extends Base
 
   ids: ->
     @array.map (p) -> p.id()
-
-  #setAll
-  send: (data) ->
-    for p in @array
-      p.send data
 
 
 

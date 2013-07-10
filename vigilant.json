@@ -1,6 +1,0 @@
-{
-  "server-5": "node node_modules/supervisor/lib/cli-wrapper.js -p 100 -n exit -w out -- example/runner.js 5000 5001",
-  "server-6": "node node_modules/supervisor/lib/cli-wrapper.js -p 100 -n exit -w out -- example/runner.js 6000 6001 5001 7001",
-  "server-7": "node node_modules/supervisor/lib/cli-wrapper.js -p 100 -n exit -w out -- example/runner.js 7000 7001",
-  "compile" : "node node_modules/coffee-script/bin/coffee -b -w -o out/ src/"
-}

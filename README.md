@@ -1,31 +1,45 @@
-# P2P Session Store
+# Peer Store
 
-> A simple peer-to-peer session store for connect and express
+> A peer-to-peer data store using dnode
 
-# Installation
+## Features
 
-`npm install p2p-session-store`
+* Replicate all operations
+* Auto batches operations to prevent flooding the network
+* Create data buckets to separate data
+* Implement your own bucket types
+  * Default bucket type is an [`lru-cache`](https://github.com/isaacs/node-lru-cache) so you may set size and TTL
+* Contains an express session store
 
-# Usage
+## Installation
 
-In Express:
+`npm install peer-store`
+
+## Examples
+
+### Simple store
+
 ``` javascript
-
-app.use(express.session({
-  store: new P2PSessionStore({
-    port: 7001,
-    peers: [8001, 9001]
-  }),
-  secret: 'secret'
-}));
+...
 
 ```
 
 This will create a `dnode` TCP server, listening for session data on `7001` and will send session data to `8001` and `9001`
 
+
+### Express/Conect session store
+
+``` javascript
+app.use(express.session({
+  store: 
+  secret: 'secret'
+}));
+
+```
+
 # API
 
-## new P2PSessionStore(`options`)
+## new PeerStore(`options`)
 
   Creates a new instance
 
@@ -43,7 +57,11 @@ Quick windows links:
 * Download [Visual C++ Express 2010](http://go.microsoft.com/?linkid=9709949)
 * Download [Windows 7 SDK](http://www.microsoft.com/en-us/download/details.aspx?displayLang=en&id=8279) (Windows 7 Only)
 
-# Credits
+## Todo
+
+* Stuff...
+
+## Credits
 
 Most of the work is being done by substack's [dnode](https://github.com/substack/dnode)
 

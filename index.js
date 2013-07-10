@@ -1,1 +1,1 @@
-module.exports = require('./out/session-store');
+module.exports = require('./out/store');
