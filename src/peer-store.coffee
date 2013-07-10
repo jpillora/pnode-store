@@ -29,7 +29,7 @@ PeerStore = class PeerStore extends Base
     @buckets = new Set()
 
     @defaultBucket = @bucket "default-peer-store"
-    _.extend @, _.pick @defaultBucket, 'get', 'set', 'del'
+    _.extend @, _.pick @defaultBucket, 'getAll', 'get', 'set', 'del'
 
     @server = new CommsServer @
 

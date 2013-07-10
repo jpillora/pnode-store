@@ -31,3 +31,14 @@ exports.parseDestination = (str) ->
 #     name + ': ' + (Math.round(val / 1024 / 1024* 100) / 100) + ' MB'
 #   , null, 2).join(', ')
 # setInterval mem, 5000
+
+
+
+exports.tap = (obj, fnName, fn) ->
+  unless typeof obj[fnName] is 'function'
+    console.log "object has no '#{fnName}' function"
+    return
+  orig = obj[fnName]
+  obj[fnName] = ->
+    fn.apply obj, arguments
+    orig.apply obj, arguments

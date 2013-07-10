@@ -59,7 +59,6 @@ module.exports = class CommsClient extends Base
         @comms.remove @id
 
   makeRemoteFn: (name) ->
-    @log "make fn ", name
     return =>
       args = Array::slice.call arguments
       @client (remote) =>

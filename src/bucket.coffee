@@ -1,6 +1,7 @@
 
 {EventEmitter} = require "events"
 
+_ = require("lodash")
 async = require "async"
 Base = require "./base"
 LRUBackend = require "./backends/lru-backend"
@@ -9,12 +10,17 @@ class Bucket extends EventEmitter
   #default backend
   name: "Bucket"
   constructor: (@store, @id, opts = {}) ->
+
+    _.bindAll @
+
+    @ops = 0
+
     if opts.backend?.create?
       create = opts.backend.create
       delete opts.backend
     else
       create = LRUBackend.create
-    
+
     @backend = create(opts)
 
     if typeof @backend.async isnt 'boolean'
@@ -24,7 +30,8 @@ class Bucket extends EventEmitter
 
   #for testing
   getAll: (callback) ->
-    callback null, @backend.getAll
+    @log "getAll"
+    callback null, @backend.getAll()
 
   get: (key, callback) ->
     @log "get", key
@@ -48,8 +55,8 @@ class Bucket extends EventEmitter
     ], callback
 
   backendSet: (key, value, callback) ->
-
-    @log "set", key
+    @ops++
+    @log @ops, "set", key, value
     @emit 'set', key, value
 
     if @backend.async
@@ -72,6 +79,7 @@ class Bucket extends EventEmitter
 
   backendDel: (key, callback) ->
 
+    @ops++
     @log "del", key
     @emit 'del', key
 

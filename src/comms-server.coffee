@@ -94,9 +94,6 @@ module.exports = class CommsServer extends Base
   apiMethods:
 
     getAll: (bucketName, callback) ->
-
-      @log "GETALL", arguments
-
       bucket = @store.buckets.get bucketName
       unless bucket
         return callback "has no bucket: #{bucketName}"
@@ -104,6 +101,7 @@ module.exports = class CommsServer extends Base
         return callback "has no getAll"
 
       bucket.getAll callback
+      
     #execute an operation on a given bucket
     set: (bucketName, key, val, callback) ->
       bucket = @store.buckets.get bucketName
