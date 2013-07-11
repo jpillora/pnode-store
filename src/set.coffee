@@ -25,3 +25,8 @@ module.exports = class Set extends EventEmitter
 
   keys: ->
     Object.keys @_obj
+
+  each: (fn) ->
+    for k,v of @_obj
+      fn k,v
+    null

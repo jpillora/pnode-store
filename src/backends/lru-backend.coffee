@@ -21,7 +21,13 @@ exports.create = (options) ->
   del: cache.del.bind(cache)
   getAll: ->
     obj = {}
-    cache.forEach (val,key) -> obj[key] = val
+    cache.forEach (val,key) ->
+      obj[key] = val
+    return obj
+  getByKeys: (keys) ->
+    obj = {}
+    keys.forEach (key) ->
+      obj[key] = cache.get(key)
     return obj
 
 

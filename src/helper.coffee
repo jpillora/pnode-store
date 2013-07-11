@@ -1,13 +1,23 @@
 
-os = require "os"
+exports.noop = ->
 
+exports.arr = (args) -> Array::slice.call args
+
+exports.getCallback = (args) ->
+  callback = args[args.length-1]
+  if typeof callback is 'function'
+    args.pop()
+  else
+    callback = exports.noop
+  return callback
+
+os = require "os"
 defaultSubnets = [
   /^10\./
   /^172\./
   /^192\./
   /^[^0]\./
 ]
-
 #choose first ip to match a subnet
 exports.getIp = (subnets = defaultSubnets) ->
   for name, addrs of os.networkInterfaces()

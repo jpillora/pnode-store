@@ -1,68 +1,96 @@
 
 _ = require("lodash")
+async = require("async")
 Base = require("./base")
 helper = require("./helper")
 upnode = require('upnode')
 
-MAX_RETRYS = 5
+MAX_RETRIES = 5
 
-#private - sender
 module.exports = class CommsClient extends Base
   name: "CommsClient"
   constructor: (@comms, @host, @port) ->
     #vars
     @store = comms.store
     @destination = @id = "#{@host}:#{@port}"
+    numRetries = 0
+    @tDiff = 0
 
     #bucket set
     @buckets = {}
+    #will contain upnode proxies
+    @remote = {}
+
+    #states
+    @conneted = false
+    @ready = false
 
     #client dnode connection
     @log "connecting..."
 
     #provide to server
-    up = upnode
-      peers: _.keys @comms.peers
-      source: @comms.id
-      addBucket: (name) =>
-        @log "add bucket: #{name}"
-        @buckets[name] = true
-
-    numRetries = 0
-
-    #will contain upnode proxies
-    @remote = {}
+    up = upnode @makeApi()
 
     @client = up.connect @port, @host
     @client.on "up", (remote) =>
       numRetries = 0
+      @initRemote remote
       @log "connected"
-
-      #set bucket set
-      @buckets = {}
-      for bucket in remote.initBuckets
-        @buckets[bucket] = true
-
-      #special upnode methods
-      for name, fn of remote
-        continue if typeof fn isnt 'function'
-        @remote[name] = @makeRemoteFn name
+      @conneted = true
 
     @client.on "down", =>
       @log "disconnected"
+      @conneted = false
 
     @client.on "reconnect", =>
       numRetries++
       @log "retrying... (##{numRetries})"
-      if numRetries is MAX_RETRYS
+      if numRetries is MAX_RETRIES
         @client.close()
         @comms.remove @id
 
-  makeRemoteFn: (name) ->
+  checkBucket: (name, times) =>
+    @log "check bucket: #{name} [#{times.t0}:#{times.tN}]"
+    @buckets[name] = true
+
+  #interface for server
+  makeApi: ->
+    peers: _.keys @comms.peers
+    source: @comms.id
+    checkBucket: @checkBucket
+
+  makeUpnodeProxy: (name) ->
     return =>
       args = Array::slice.call arguments
-      @client (remote) =>
-        remote[name].apply remote, args
+      @client (rem) =>
+        rem[name].apply rem, args
+      true
+
+  initRemote: (remote) ->
+    @remote = {}
+    #create upnode proxies to each function
+    _.each remote, (fn, name) =>
+      return if typeof fn isnt 'function'
+      @remote[name] = @makeUpnodeProxy name
+
+    #compare server time
+    async.times 10, (n, next) =>
+      clientT = Date.now()
+      remote.time (serverT) =>
+        trip = Math.round((Date.now() - clientT)/2)
+        diff = clientT - (serverT + trip)
+        next null, diff
+    , (err, results) =>
+      return @log "remote error", err if err
+      sum = results.reduce ((s,n)->s+n),0
+      @tDiff = Math.round sum/results.length
+      @ready = true
+
+      #add and check all buckets
+      for name, times of remote.buckets
+        @checkBucket name, times
+
+    null
 
   toString: ->
     "#{@comms} #{Base::toString.call @}"

@@ -4,17 +4,15 @@
 _ = require("lodash")
 async = require "async"
 Base = require "./base"
+helper = require "./helper"
 LRUBackend = require "./backends/lru-backend"
 
 class Bucket extends EventEmitter
   #default backend
   name: "Bucket"
   constructor: (@store, @id, opts = {}) ->
-
+    @log "created"
     _.bindAll @
-
-    @ops = 0
-
     if opts.backend?.create?
       create = opts.backend.create
       delete opts.backend
@@ -26,72 +24,62 @@ class Bucket extends EventEmitter
     if typeof @backend.async isnt 'boolean'
       @err "backend must set async to 'true' or 'false'"
 
-    @_obj = {}
+    @history = []
+    @t0 = null
+    @tN = null
 
-  #for testing
-  getAll: (callback) ->
-    @log "getAll"
-    callback null, @backend.getAll()
+  # read methods - no propogation
+  getAll: -> @backendOp 'getAll', arguments
+  get: ->    @backendOp 'get', arguments
 
-  get: (key, callback) ->
-    @log "get", key
+  # write methods - need to propogate changes 
+  set: -> @asyncOp 'set', arguments
+  del: -> @asyncOp 'del', arguments
 
-    if @backend.async
-      @backend.get key, callback
-    else
-      item = @backend.get key
-      #force asynchrony
-      process.nextTick ->
-        callback null, item
+  asyncOp: (op, args) ->
+    args = helper.arr args
+    callback = helper.getCallback args
 
-  #get is 'backendGet'
-
-  set: (key, value, callback) ->
-    async.parallel [
-      #broadcast to all 'backendSet'
-      (cb) => @store.server.set @id, key, value, cb
-      #do local 'backendSet'
-      (cb) => @backendSet key, value, cb
-    ], callback
-
-  backendSet: (key, value, callback) ->
-    @ops++
-    @log @ops, "set", key, value
-    @emit 'set', key, value
-
-    if @backend.async
-      @backend.set key, value, callback
-    else
-      res = @backend.set key, value
-      #force asynchrony
-      process.nextTick ->
-        callback if res is false then "set fail - returned false" 
-
-    null
-
-  del: (key, callback) ->
+    broadcastArgs = [@id].concat(args)
     async.parallel [
       #broadcast to all 'backendDel'
-      (cb) => @store.server.del @id, key, cb
+      (cb) => @store.server.broadcast(op, broadcastArgs.concat(cb))
       #do local 'backendDel'
-      (cb) => @backendDel key, cb
+      (cb) => @backendOp op, args.concat(cb)
     ], callback
 
-  backendDel: (key, callback) ->
-
-    @ops++
-    @log "del", key
-    @emit 'del', key
+  backendOp: (op, args) ->
+    args = helper.arr args
+    callback = helper.getCallback args
 
     if @backend.async
-      @backend.del key, callback
+      @backend[op].apply @backend, args.concat(callback)
     else
-      res = @backend.del key
+      res = @backend[op].apply @backend, args
       #force asynchrony
       process.nextTick ->
-        callback if res is false then "del fail - returned false" 
+        callback if res is false then "#{op} failed (returned false)" 
+
+    @event op, args if op in ['set','del']
     null
 
+  backendSet: -> @backendOp 'set', arguments
+  backendDel: -> @backendOp 'del', arguments
+
+  event: (op, args) ->
+    key = args.shift()
+    if typeof args[0] isnt 'function'
+      value = args.shift()
+    @log op, key, value or ''
+    @emit op, key, value
+    item = { op, key, value, t: Date.now() }
+    
+    @t0 = item.t if @history.length is 0
+    @tN = item.t
+    @history.push item
+
+  times: ->
+    _.pick @, 't0', 'tN'
 
 #also extend base
 Base.mixin Bucket
