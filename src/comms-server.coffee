@@ -31,6 +31,8 @@ module.exports = class CommsServer extends Base
         @add remote.source
         remote.peers.forEach @add
 
+        throw "PUSH CHANGES TO REMOTE"
+
       #dynamic api methods
       return @makeApi()
 
@@ -42,9 +44,6 @@ module.exports = class CommsServer extends Base
       @log "unlistening..."
       for dest, peer of @clients
         peer.client.close()
-
-    #add to remotes bucket list when we change ours
-    @store.buckets.on 'set', @broadcastNewBucket
 
   add: (dest) ->
     if dest is @id or @clients[dest]
@@ -77,17 +76,6 @@ module.exports = class CommsServer extends Base
 
     async.parallel fns, callback
 
-  broadcastNewBucket: (name, bucket) =>
-    gotBuckets = (err, bucketList) =>
-      @log "found buckets: ", bucketList
-
-    @log "searching for other '#{name}' buckets"
-    @broadcast 'getBuckets', [name, gotBuckets]
-
-  broadcastBucketOp: (fnName, args) =>
-    @broadcast fnName, args, (client) ->
-      return client.buckets[bucketName]
-
   #expose methods to client
   makeApi: ->
     api =
@@ -96,12 +84,8 @@ module.exports = class CommsServer extends Base
       time: (cb) =>
         cb Date.now()
 
-      getBuckets: (query, callback) =>
-        results = {}
-        @store.buckets.each (name, bucket) ->
-          if query is name
-            results[name] = bucket.times()
-        callback null, results
+      getBucket: (query, callback) =>
+        callback null, @store.buckets.get(query)?.times()
 
     #add each bucket's time stats
     @store.buckets.each (name, bucket) ->

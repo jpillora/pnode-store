@@ -28,6 +28,12 @@ class Bucket extends EventEmitter
     @t0 = null
     @tN = null
 
+    #fill this bucket up using peers
+    @log "searching for other '#{@id}' buckets"
+    @store.server.broadcast 'getBucket', [@id, (err, bucketList) =>
+      @log "found buckets: ", bucketList
+    ]
+
   # read methods - no propogation
   getAll: -> @backendOp 'getAll', arguments
   get: ->    @backendOp 'get', arguments
@@ -43,10 +49,16 @@ class Bucket extends EventEmitter
     broadcastArgs = [@id].concat(args)
     async.parallel [
       #broadcast to all 'backendDel'
-      (cb) => @store.server.broadcast(op, broadcastArgs.concat(cb))
+      (cb) => @broadcastOp op, broadcastArgs.concat(cb)
       #do local 'backendDel'
       (cb) => @backendOp op, args.concat(cb)
     ], callback
+
+  #broadcast operation, filtering clients missing this bucket
+  broadcastOp: (op, args) =>
+    @log "broadcast #{op}: #{args[0]}"
+    @store.server.broadcast op, args, (client) ->
+      return !!client.buckets[@id]
 
   backendOp: (op, args) ->
     args = helper.arr args
@@ -73,7 +85,7 @@ class Bucket extends EventEmitter
     @log op, key, value or ''
     @emit op, key, value
     item = { op, key, value, t: Date.now() }
-    
+
     @t0 = item.t if @history.length is 0
     @tN = item.t
     @history.push item

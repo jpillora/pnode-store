@@ -30,3 +30,9 @@ module.exports = class Set extends EventEmitter
     for k,v of @_obj
       fn k,v
     null
+
+  map: (fn) ->
+    res = []
+    for k,v of @_obj
+      res.push fn k,v
+    res

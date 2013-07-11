@@ -20,18 +20,17 @@ PeerStore = class PeerStore extends Base
     unless _.isPlainObject options
       @err "Must specify options object"
 
-    @opts = _.defaults options, defaults
+    _.bindAll @
 
+    @opts = _.defaults options, defaults
     #for debugging
     @store = { opts: @opts }
-
-    _.bindAll @
+    @server = new CommsServer @
     @buckets = new Set()
 
     @defaultBucket = @bucket "default-peer-store"
     _.extend @, _.pick @defaultBucket, 'getAll', 'get', 'set', 'del'
 
-    @server = new CommsServer @
 
   #get and insert a bucket with opts
   bucket: (name, opts) ->
