@@ -28,10 +28,12 @@ module.exports = class CommsServer extends Base
       #when a client connects to us
       d.on 'remote', =>
         #add remote and all of it's peers
-        @add remote.source
-        remote.peers.forEach @add
+        client = @add remote.source
+        unless client
+          @err "recieved connection from self..."
 
-        throw "PUSH CHANGES TO REMOTE"
+        client.clientRemote = remote
+        remote.peers.forEach @add
 
       #dynamic api methods
       return @makeApi()
@@ -42,13 +44,12 @@ module.exports = class CommsServer extends Base
     #forceful kill of the server
     @server.on 'end', =>
       @log "unlistening..."
-      for dest, peer of @clients
-        peer.client.close()
+      for dest, client of @clients
+        client.client.close()
 
   add: (dest) ->
-    if dest is @id or @clients[dest]
-      # @log "Peer at '#{dest}' already exists"
-      return false
+    return false if dest is @id
+    return @clients[dest] if @clients[dest]
 
     {host, port} = helper.parseDestination dest
 
@@ -56,9 +57,7 @@ module.exports = class CommsServer extends Base
       @log "Invalid destination '#{dest}'"
       return false
 
-    @clients[dest] = new CommsClient(@, host, port)
-    # @log "added: '#{dest}' (##{_.keys(@clients).length})"
-    true
+    return @clients[dest] = new CommsClient(@, host, port)
 
   remove: (dest) ->
     return unless @clients[dest]
@@ -83,7 +82,6 @@ module.exports = class CommsServer extends Base
       buckets: {}
       time: (cb) =>
         cb Date.now()
-
       getBucket: (query, callback) =>
         callback null, @store.buckets.get(query)?.times()
 

@@ -28,11 +28,32 @@ class Bucket extends EventEmitter
     @t0 = null
     @tN = null
 
+    @pingAll()
+
+  pingAll: ->
+    pings = []
+    _.each @store.server.clients, (client) =>
+      return unless client.ready
+      ping = client.clientRemote?.pingBucket
+      return unless ping
+      pings.push (cb) =>
+        ping @id, @times, cb
+
+    #peers ping'd, now retrieve their histories
+    async.parallel pings, @retrieveHistory
+
+  retrieveHistory: ->
     #fill this bucket up using peers
     @log "searching for other '#{@id}' buckets"
     @store.server.broadcast 'getBucket', [@id, (err, bucketList) =>
       @log "found buckets: ", bucketList
+      #TODO compare bucketlist times with this times
+      #     retrieve history required
     ]
+
+  restoreHistory: (histories) ->
+    #TODO using retrieved histories AND client time diffs
+    #     restore history by performing missing ops
 
   # read methods - no propogation
   getAll: -> @backendOp 'getAll', arguments

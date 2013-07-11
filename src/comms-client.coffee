@@ -16,7 +16,8 @@ module.exports = class CommsClient extends Base
     numRetries = 0
     @tDiff = 0
 
-    #bucket set
+    #bucket set - map to booleans
+    # whether client has a given bucket
     @buckets = {}
     #will contain upnode proxies
     @remote = {}
@@ -49,15 +50,16 @@ module.exports = class CommsClient extends Base
         @client.close()
         @comms.remove @id
 
-  checkBucket: (name, times) =>
+  checkBucket: (name, times, callback) =>
     @log "check bucket: #{name} [#{times.t0}:#{times.tN}]"
     @buckets[name] = true
+    callback(null) if callback
 
   #interface for server
   makeApi: ->
     peers: _.keys @comms.peers
     source: @comms.id
-    checkBucket: @checkBucket
+    pingBucket: @checkBucket
 
   makeUpnodeProxy: (name) ->
     return =>
@@ -81,14 +83,16 @@ module.exports = class CommsClient extends Base
         diff = clientT - (serverT + trip)
         next null, diff
     , (err, results) =>
+
       return @log "remote error", err if err
       sum = results.reduce ((s,n)->s+n),0
       @tDiff = Math.round sum/results.length
-      @ready = true
 
       #add and check all buckets
       for name, times of remote.buckets
         @checkBucket name, times
+
+      @ready = true
 
     null
 
