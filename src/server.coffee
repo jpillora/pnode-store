@@ -2,7 +2,7 @@
 _ = require("lodash")
 Base = require("./base")
 helper = require("./helper")
-CommsClient = require("./comms-client")
+CommsClient = require("./client")
 upnode = require('upnode')
 async = require('async')
 
@@ -42,6 +42,9 @@ module.exports = class CommsServer extends Base
 
     @upnode = @upnodeDaemon.listen @port, =>
       @log "listening..."
+
+    @upnode.on 'error', (err) =>
+      @err err
 
     # this should be the upnode function above
     # @upnode.on 'connection', =>
