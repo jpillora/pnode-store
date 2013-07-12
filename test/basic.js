@@ -4,6 +4,23 @@ var async = require('async');
 var assert = require('assert');
 var servers = [5000,6000,7000];
 
+  run([
+    ['s1','start', 11000],
+    ['s2','in', 1000, 'start', 12000, [11000]],
+    ['s2','bucket', 'foo']
+    ['s2','in', 1000, 'addTo', 'foo']
+  ], function(err, results) {
+
+    // results.s1.data
+    // results.s1.peers
+    // results.s1.buckets
+
+  });
+
+
+
+
+
 
 
 describe('Servers should NOT share sessions >', function(){
