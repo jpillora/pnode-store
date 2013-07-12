@@ -9,45 +9,55 @@ async = require('async')
 #public - reciever
 module.exports = class CommsServer extends Base
 
-  name: "CommsServer"
+  name: "Server"
 
   constructor: (@store) ->
     
+    _.bindAll @
     @host = helper.getIp()
     @port = @store.opts.port
     @id = "#{@host}:#{@port}"
 
-    _.bindAll @
-
     #clients
     @clients = {}
-    @store.opts.peers?.forEach @add
 
     #give connection the api
-    @server = upnode (remote, d) =>
+    @upnodeDaemon = upnode (remote, d) =>
       #when a client connects to us
       d.on 'remote', =>
         #add remote and all of it's peers
         client = @add remote.source
         unless client
           @err "recieved connection from self..."
+        client.internal = {remote,d}
 
-        client.clientRemote = remote
-        remote.peers.forEach @add
+        remote.buckets.forEach (name) =>
+          @store.buckets.get(name)?.ping(remote.source)
+
+        #add peers
+        remote.clients.forEach @add
 
       #dynamic api methods
       return @makeApi()
 
-    @server.listen @port, =>
+    @upnode = @upnodeDaemon.listen @port, =>
       @log "listening..."
 
-    #forceful kill of the server
-    @server.on 'end', =>
-      @log "unlistening..."
-      for dest, client of @clients
-        client.client.close()
+    # this should be the upnode function above
+    # @upnode.on 'connection', =>
+
+    #let variables land
+    process.nextTick =>
+      @store.opts.peers?.forEach @add
+
+  destroy: ->
+    @log "destroy"
+    @upnode.close()
+    for dest, client of @clients
+      client.destroy()
 
   add: (dest) ->
+
     return false if dest is @id
     return @clients[dest] if @clients[dest]
 
@@ -57,10 +67,13 @@ module.exports = class CommsServer extends Base
       @log "Invalid destination '#{dest}'"
       return false
 
-    return @clients[dest] = new CommsClient(@, host, port)
+    client = new CommsClient(@, host, port)
+    @emit 'addClient', client
+    return @clients[dest] = client
 
   remove: (dest) ->
     return unless @clients[dest]
+    @emit 'removeClient', @clients[dest]
     delete @clients[dest]
     @log "removed: '#{dest}'"
 
@@ -68,26 +81,34 @@ module.exports = class CommsServer extends Base
   broadcast: (fnName, args, filter = -> true) ->
     callback = helper.getCallback args
     fns = []
+    err = null
     _.each @clients, (client, dest) ->
-      return unless client.conneted and client.ready and filter client, dest
+      unless client.conneted and client.ready and filter client, dest
+        return 
       fn = client.remote[fnName]
+      unless fn
+        err = "server method '#{fnName}' does not exist" 
+        return false
       fns.push (cb) -> fn.apply(client.remote, args.concat(cb))
 
-    async.parallel fns, callback
+    if err
+      callback err
+    else
+      @log "broadcasting to '#{fnName}', to #{fns.length} clients"
+      async.parallel fns, callback
 
   #expose methods to client
   makeApi: ->
     api =
       source: @id
+      clients: _.keys @clients
       buckets: {}
       time: (cb) =>
         cb Date.now()
-      getBucket: (query, callback) =>
-        callback null, @store.buckets.get(query)?.times()
-
-    #add each bucket's time stats
-    @store.buckets.each (name, bucket) ->
-      api.buckets[name] = bucket.times()
+      pingBucket: (source, name, cb) =>
+        res = @store.buckets.get(name)?.ping?(source) or { missing: true }
+        res.source = @id
+        cb null, res
 
     # add particular bucket methods
     # calls are all to sent to the backend (do not trigger further broadcasts)

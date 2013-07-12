@@ -10,6 +10,10 @@ LRUBackend = require "./backends/lru-backend"
 class Bucket extends EventEmitter
   #default backend
   name: "Bucket"
+
+  #public methods used for extending
+  publics: ['getAll', 'get', 'set', 'del']
+
   constructor: (@store, @id, opts = {}) ->
     @log "created"
     _.bindAll @
@@ -24,6 +28,8 @@ class Bucket extends EventEmitter
     if typeof @backend.async isnt 'boolean'
       @err "backend must set async to 'true' or 'false'"
 
+    #a map of all clients with this bucket
+    @clients = {}
     @history = []
     @t0 = null
     @tN = null
@@ -31,29 +37,31 @@ class Bucket extends EventEmitter
     @pingAll()
 
   pingAll: ->
-    pings = []
-    _.each @store.server.clients, (client) =>
-      return unless client.ready
-      ping = client.clientRemote?.pingBucket
-      return unless ping
-      pings.push (cb) =>
-        ping @id, @times, cb
+    #ping all 
+    @store.server.broadcast 'pingBucket', [@store.server.id, @id, @restoreHistory]
 
-    #peers ping'd, now retrieve their histories
-    async.parallel pings, @retrieveHistory
+  restoreHistory: (err, pingList) ->
+    @err err if err
+    @log "pingList", pingList
 
-  retrieveHistory: ->
-    #fill this bucket up using peers
-    @log "searching for other '#{@id}' buckets"
-    @store.server.broadcast 'getBucket', [@id, (err, bucketList) =>
-      @log "found buckets: ", bucketList
-      #TODO compare bucketlist times with this times
-      #     retrieve history required
-    ]
-
-  restoreHistory: (histories) ->
     #TODO using retrieved histories AND client time diffs
     #     restore history by performing missing ops
+
+
+  #fired when this bucket has been pinged
+  ping: (source) ->
+    if source is @store.server.id
+      @err "pinged by self..."
+
+    @log "pinged by #{source}"
+    #client 'source' just pinged me, must also have this bucket
+    @clients[source] = true
+    return @times()
+
+  #client lost - remove their flag
+  pong: (source) ->
+    @log "PONG #{source}"
+    @clients[source] = false
 
   # read methods - no propogation
   getAll: -> @backendOp 'getAll', arguments
@@ -78,8 +86,7 @@ class Bucket extends EventEmitter
   #broadcast operation, filtering clients missing this bucket
   broadcastOp: (op, args) =>
     @log "broadcast #{op}: #{args[0]}"
-    @store.server.broadcast op, args, (client) ->
-      return !!client.buckets[@id]
+    @store.server.broadcast op, args, @filterClients
 
   backendOp: (op, args) ->
     args = helper.arr args
@@ -111,8 +118,10 @@ class Bucket extends EventEmitter
     @tN = item.t
     @history.push item
 
-  times: ->
-    _.pick @, 't0', 'tN'
+  times: -> { t0: @t0, tN: @tN }
+
+  filterClients: (client, dest) ->
+    !!@clients[dest]
 
 #also extend base
 Base.mixin Bucket

@@ -5,66 +5,62 @@ Base = require("./base")
 helper = require("./helper")
 upnode = require('upnode')
 
-MAX_RETRIES = 5
+MAX_RETRIES = 3
 
 module.exports = class CommsClient extends Base
-  name: "CommsClient"
-  constructor: (@comms, @host, @port) ->
+  name: "Client"
+  constructor: (@server, @host, @port) ->
     #vars
-    @store = comms.store
+    @store = @server.store
     @destination = @id = "#{@host}:#{@port}"
     numRetries = 0
     @tDiff = 0
-
-    #bucket set - map to booleans
-    # whether client has a given bucket
-    @buckets = {}
     #will contain upnode proxies
     @remote = {}
-
     #states
     @conneted = false
     @ready = false
-
     #client dnode connection
     @log "connecting..."
 
     #provide to server
     up = upnode @makeApi()
 
-    @client = up.connect @port, @host
-    @client.on "up", (remote) =>
+    @upnode = up.connect @port, @host
+    @upnode.on "up", (remote) =>
       numRetries = 0
       @initRemote remote
       @log "connected"
       @conneted = true
 
-    @client.on "down", =>
+    @upnode.on "down", =>
       @log "disconnected"
       @conneted = false
 
-    @client.on "reconnect", =>
+    @upnode.on "reconnect", =>
       numRetries++
       @log "retrying... (##{numRetries})"
       if numRetries is MAX_RETRIES
-        @client.close()
-        @comms.remove @id
+        @destroy()
 
-  checkBucket: (name, times, callback) =>
-    @log "check bucket: #{name} [#{times.t0}:#{times.tN}]"
-    @buckets[name] = true
-    callback(null) if callback
+    # helper.tap @upnode, 'emit', => @log ">> emit", arguments[0]
+
+  destroy: ->
+    @log "destroy"
+    @internal?.d.end()
+    @upnode.close()
+    @server.remove @id
 
   #interface for server
   makeApi: ->
-    peers: _.keys @comms.peers
-    source: @comms.id
-    pingBucket: @checkBucket
+    clients: _.keys @server.clients
+    source: @server.id
+    buckets: @store.buckets.keys()
 
   makeUpnodeProxy: (name) ->
     return =>
       args = Array::slice.call arguments
-      @client (rem) =>
+      @upnode (rem) =>
         rem[name].apply rem, args
       true
 
@@ -74,6 +70,9 @@ module.exports = class CommsClient extends Base
     _.each remote, (fn, name) =>
       return if typeof fn isnt 'function'
       @remote[name] = @makeUpnodeProxy name
+
+    #add peers
+    remote.clients.forEach @server.add
 
     #compare server time
     async.times 10, (n, next) =>
@@ -87,14 +86,9 @@ module.exports = class CommsClient extends Base
       return @log "remote error", err if err
       sum = results.reduce ((s,n)->s+n),0
       @tDiff = Math.round sum/results.length
-
-      #add and check all buckets
-      for name, times of remote.buckets
-        @checkBucket name, times
-
       @ready = true
 
     null
 
   toString: ->
-    "#{@comms} #{Base::toString.call @}"
+    "#{@server} #{Base::toString.call @}"

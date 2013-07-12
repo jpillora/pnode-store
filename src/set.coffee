@@ -1,7 +1,7 @@
 
-{EventEmitter} = require "events"
+Base = require "./base"
 
-module.exports = class Set extends EventEmitter
+module.exports = class Set extends Base
 
   constructor: ->
     @_obj = {}

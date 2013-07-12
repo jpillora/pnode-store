@@ -1,6 +1,7 @@
 _ = require "lodash"
+{EventEmitter} = require "events"
 
-Base = class Base
+Base = class Base extends EventEmitter
   name: "Base"
   toString: ->
     @name + (if @id then ': ' + @id else '') + ':'

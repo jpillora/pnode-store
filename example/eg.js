@@ -3,10 +3,18 @@
 var _ = require('lodash');
 var PeerStore = require('../');
 
-exports.create = function() {
+exports.after = function(ms, fn) {
+  setTimeout(fn, ms);
+};
 
-  var peers = process.argv.slice(2),
-      port = Number(peers.shift());
+exports.every = function(ms, fn) {
+  setInterval(fn, ms);
+};
+
+exports.create = function(port, peers) {
+
+  if(!peers) peers = process.argv.slice(2);
+  if(!port)  port = Number(peers.shift());
 
   if(!port) {
     console.log('no port');

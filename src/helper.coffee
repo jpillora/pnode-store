@@ -52,3 +52,10 @@ exports.tap = (obj, fnName, fn) ->
   obj[fnName] = ->
     fn.apply obj, arguments
     orig.apply obj, arguments
+
+exports.keys = (obj) ->
+  keys = []
+  for key of obj
+    keys.push key
+  keys
+

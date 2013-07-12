@@ -17,6 +17,8 @@ PeerStore = class PeerStore extends Base
   name: "PeerStore"
   constructor: (options) ->
 
+    @id = helper.guid()
+
     unless _.isPlainObject options
       @err "Must specify options object"
 
@@ -25,12 +27,20 @@ PeerStore = class PeerStore extends Base
     @opts = _.defaults options, defaults
     #for debugging
     @store = { opts: @opts }
+    
     @server = new CommsServer @
     @buckets = new Set()
 
-    @defaultBucket = @bucket "default-peer-store"
-    _.extend @, _.pick @defaultBucket, 'getAll', 'get', 'set', 'del'
+    #notify all buckets of client removals
+    @server.on 'removeClient', (client) =>
+      @buckets.each (name, bucket) =>
+        bucket.pong client.id
 
+    #create the default bucket
+    @defaultBucket = @bucket "default-peer-store"
+    #extend its interface
+    Bucket::publics.forEach (fn) =>
+      @[fn] = @defaultBucket[fn]
 
   #get and insert a bucket with opts
   bucket: (name, opts) ->
@@ -43,6 +53,10 @@ PeerStore = class PeerStore extends Base
 
   sessionStore: ->
     null
+
+  destroy: ->
+    @log "END SERVER"
+    @server.destroy()
 
 #exports
 PeerStore.helper = helper

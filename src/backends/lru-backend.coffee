@@ -6,8 +6,8 @@
 #     set: fn
 #     del: fn
 # - 'async' will dictate whether peer store will either call:
-#     get(key, callback) or
-#     get(key)
+#     fn(args..., callback) or
+#     fn(args...)
 #  * callback must follow node-style (err, result)
 
 LRU = require 'lru-cache'
