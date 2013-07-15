@@ -22,20 +22,28 @@ module.exports = class CommsServer extends Base
     @clients = {}
 
     #give connection the api
-    @upnodeDaemon = upnode (remote, d) =>
+    @upnodeDaemon = upnode (remote, dnode) =>
+
+      client = null
+
       #when a client connects to us
-      d.on 'remote', =>
+      dnode.on 'remote', =>
         #add remote and all of it's peers
         client = @add remote.source
         unless client
           @err "recieved connection from self..."
-        client.internal = {remote,d}
+        client.internal = {remote,dnode}
 
         remote.buckets.forEach (name) =>
           @store.buckets.get(name)?.ping(remote.source)
 
         #add peers
         remote.clients.forEach @add
+
+      dnode.on 'error', (err) =>
+        @log "connection error",err
+        if client
+          client.destroy()
 
       #dynamic api methods
       return @makeApi()
@@ -71,8 +79,12 @@ module.exports = class CommsServer extends Base
       return false
 
     client = new CommsClient(@, host, port)
+    @clients[dest] = client
     @emit 'addClient', client
-    return @clients[dest] = client
+    client.once 'destroy', =>
+      @remove client.id
+
+    return client
 
   remove: (dest) ->
     return unless @clients[dest]
@@ -86,7 +98,7 @@ module.exports = class CommsServer extends Base
     fns = []
     err = null
     _.each @clients, (client, dest) ->
-      unless client.conneted and client.ready and filter client, dest
+      unless client.connected and client.ready and filter client, dest
         return 
       fn = client.remote[fnName]
       unless fn

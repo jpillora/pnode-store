@@ -79,9 +79,9 @@ class Bucket extends EventEmitter
 
     broadcastArgs = [@id].concat(args)
     async.parallel [
-      #broadcast to all 'backendDel'
+      #broadcast op to all other buckets 
       (cb) => @broadcastOp op, broadcastArgs.concat(cb)
-      #do local 'backendDel'
+      #do local op
       (cb) => @backendOp op, args.concat(cb)
     ], callback
 
@@ -98,9 +98,13 @@ class Bucket extends EventEmitter
     if @backend.async
       @backend[op].apply @backend, args.concat(callback)
     else
-      res = @backend[op].apply @backend, args
-      process.nextTick ->
-        err = if res is false then "#{op} failed (returned false)" else null
+      process.nextTick =>
+        err = null
+        try
+          res = @backend[op].apply @backend, args
+        catch e
+          err = e
+        console.log 'sync op', op, res
         callback err, res
 
     @event op, args if op in ['set','del']
@@ -113,7 +117,7 @@ class Bucket extends EventEmitter
     key = args.shift()
     if typeof args[0] isnt 'function'
       value = args.shift()
-    # @log op, key, value or ''
+    @log op, key, value or ''
     @emit op, key, value
     item = { op, key, value, t: Date.now() }
 

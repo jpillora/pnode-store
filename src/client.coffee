@@ -18,7 +18,7 @@ module.exports = class CommsClient extends Base
     #will contain upnode proxies
     @remote = {}
     #states
-    @conneted = false
+    @connected = false
     @ready = false
     #client dnode connection
     @log "connecting..."
@@ -27,15 +27,17 @@ module.exports = class CommsClient extends Base
     up = upnode @makeApi()
 
     @upnode = up.connect @port, @host
-    @upnode.on "up", (remote) =>
+    @upnode.on "up", (remote, dnode) =>
       numRetries = 0
       @initRemote remote
+      @connected = true
       @log "connected"
-      @conneted = true
+      @emit "connected"
 
     @upnode.on "down", =>
+      @connected = false
       @log "disconnected"
-      @conneted = false
+      @emit "disconnected"
 
     @upnode.on "reconnect", =>
       numRetries++
@@ -47,9 +49,9 @@ module.exports = class CommsClient extends Base
 
   destroy: ->
     @log "destroy"
-    @internal?.d.end()
+    @emit "destroy"
+    @internal?.dnode.end()
     @upnode.close()
-    @server.remove @id
 
   #interface for server
   makeApi: ->

@@ -12,22 +12,37 @@
 
 LRU = require 'lru-cache'
 
-exports.create = (options) ->
-  cache = LRU options
-  
+class LRUBackend
+
   async: false
-  get: cache.get.bind(cache)
-  set: cache.set.bind(cache)
-  del: cache.del.bind(cache)
+
+  constructor: (options) ->
+    @cache = LRU options
+  
+  get: (key) ->
+    res = @cache.get(key)
+    console.log 'LRUBackend', 'get', key, res
+    return res
+  
+  set: (key, val) ->
+    res = @cache.set(key, val)
+    console.log 'LRUBackend', 'set', key, val, res
+    return res
+  
+  del: (key) ->
+    return @cache.del(key)
+  
   getAll: ->
     obj = {}
-    cache.forEach (val,key) ->
+    @cache.forEach (val,key) ->
       obj[key] = val
     return obj
+  
   getByKeys: (keys) ->
     obj = {}
-    keys.forEach (key) ->
-      obj[key] = cache.get(key)
+    keys.forEach (key) =>
+      obj[key] = @cache.get(key)
     return obj
 
-
+exports.create = (options) ->
+  return new LRUBackend options

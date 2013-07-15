@@ -2,7 +2,7 @@
 # Use with express like so:
 #
 # app.use(express.session({
-#   store: new P2PSessionStore(),
+#   store: store.sessionStore(),
 #   secret: 'secret'
 # }));
 
@@ -15,13 +15,25 @@ class SessionStore extends connect.session.Store
 
   name: "SessionStore"
   constructor: (@store) ->
+    @bucket = @store.bucket 'default-session-store' 
 
   get: (sid, fn) ->
-    @log "get: #{sid}"
+    @log '<GET', sid
+    @bucket.get sid, (err, res) =>
+      @log '>GET', sid, err or res
+      fn(err, res)   
 
-  set: (sid, sess, fn) ->
+  set: (sid, session, fn) ->
+    @log '<SET', sid
+    @bucket.set sid, session, (err, res) =>
+      @log '>SET', sid, err, res
+      fn(err, session)   
 
   destroy: (sid, fn) ->
+    @log '<DEL', sid
+    @bucket.del sid, (err, res) =>
+      @log '>DEL', sid, err or res
+      fn(err, res) if fn   
 
 #also extend base
 Base.mixin SessionStore

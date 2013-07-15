@@ -5,7 +5,8 @@ mkdirp = require("mkdirp")
 CommsServer = require("./server")
 helper = require("./helper")
 Base = require("./base")
-Bucket = require("./Bucket")
+Bucket = require("./bucket")
+SessionStore = require("./session-store")
 Set = require("./set")
 
 defaults =
@@ -51,8 +52,10 @@ PeerStore = class PeerStore extends Base
     @buckets.set name, bucket
     return bucket
 
-  sessionStore: ->
-    null
+  sessionStore: (opts) ->
+    unless @sessionStore.inst
+      @sessionStore.inst = new SessionStore @
+    @sessionStore.inst
 
   destroy: ->
     @log "END SERVER"
