@@ -64,20 +64,20 @@ module.exports = class CommsClient extends Base
         rem[name].apply rem, args
       true
 
-  initRemote: (remote) ->
+  initRemote: (rem) ->
     @remote = {}
     #create upnode proxies to each function
-    _.each remote, (fn, name) =>
+    _.each rem, (fn, name) =>
       return if typeof fn isnt 'function'
       @remote[name] = @makeUpnodeProxy name
 
     #add peers
-    remote.clients.forEach @server.add
+    rem.clients.forEach @server.add
 
     #compare server time
     async.times 10, (n, next) =>
       clientT = Date.now()
-      remote.time (serverT) =>
+      rem.time (serverT) =>
         trip = Math.round((Date.now() - clientT)/2)
         diff = clientT - (serverT + trip)
         next null, diff

@@ -97,7 +97,7 @@ module.exports = class CommsServer extends Base
     if err
       callback err
     else
-      @log "broadcasting to '#{fnName}', to #{fns.length} clients"
+      # @log "broadcasting to '#{fnName}', to #{fns.length} clients"
       async.parallel fns, callback
 
   #expose methods to client

@@ -42,6 +42,8 @@ class Bucket extends EventEmitter
 
   restoreHistory: (err, pingList) ->
     @err err if err
+    return if pingList.length is 0
+
     @log "pingList", pingList
 
     #TODO using retrieved histories AND client time diffs
@@ -85,9 +87,10 @@ class Bucket extends EventEmitter
 
   #broadcast operation, filtering clients missing this bucket
   broadcastOp: (op, args) =>
-    @log "broadcast #{op}: #{args[0]}"
+    # @log "broadcast #{op}: #{args[0]}"
     @store.server.broadcast op, args, @filterClients
 
+  #interface to the given backend - enforces asynchrony
   backendOp: (op, args) ->
     args = helper.arr args
     callback = helper.getCallback args
@@ -96,9 +99,9 @@ class Bucket extends EventEmitter
       @backend[op].apply @backend, args.concat(callback)
     else
       res = @backend[op].apply @backend, args
-      #force asynchrony
       process.nextTick ->
-        callback if res is false then "#{op} failed (returned false)" 
+        err = if res is false then "#{op} failed (returned false)" else null
+        callback err, res
 
     @event op, args if op in ['set','del']
     null
@@ -110,7 +113,7 @@ class Bucket extends EventEmitter
     key = args.shift()
     if typeof args[0] isnt 'function'
       value = args.shift()
-    @log op, key, value or ''
+    # @log op, key, value or ''
     @emit op, key, value
     item = { op, key, value, t: Date.now() }
 

@@ -1,6 +1,6 @@
 #directable store process
-
-PeerStore = require "/Users/jpillora/Code/Node/node-peer-store"
+PeerStore = require "../../"
+async = require "async"
 name = null
 store = null
 buckets = {}
@@ -8,6 +8,10 @@ buckets = {}
 #helpers
 guid = -> (Math.random() * Math.pow(2, 32)).toString(16)
 rand = (max) -> (Math.floor(Math.random()*max))
+
+ts =
+  ms: 1
+  s: 1000
 
 fns =
   start: (port, peers) ->
@@ -25,6 +29,7 @@ fns =
       peers: peers
 
   create: (n) ->
+    throw "store not started" unless store
     buckets[n] = store.bucket n
 
   insert: (n, times) ->
@@ -32,11 +37,20 @@ fns =
       buckets[n].set "#{name}-#{n}-#{guid()}", rand(50)
 
   report: () ->
+    throw "store not started" unless store
     data = {}
-    store.buckets.each (n, bucket) ->
-      data[n] = 42
-    console.log "REPORT", data
-    process.send data
+
+    getAll = (n, callback) ->
+      store.bucket(n).getAll (err, results) ->
+        throw err if err
+        # console.log "BUCKET", n, err, results
+        data[n] = results
+        callback null
+
+    async.map store.buckets.keys(), getAll, (err) ->
+      throw err if err
+      # console.log "REPORT", data
+      process.send data
 
 callAction = (action, args, delay) ->
 
@@ -47,20 +61,23 @@ callAction = (action, args, delay) ->
   unless fn.length is args.length
     return process.send {error: "action: '#{action}' expects #{fn.length} args"}
 
+  # console.log "+#{delay}ms"
   setTimeout ->
     try
-      console.log "+#{delay}s - CALLING #{action}(#{args.join(',')})"
+      console.log "+#{delay}ms - CALLING #{action}(#{args.join(',')})"
       fn.apply null, args
     catch e
       process.send {error: e.toString()}
-  , delay*1000
+  , delay
 
   null
 
 parseActions = (actions, delay = 0) ->
   for act,obj of actions
-    if /^wait(\d+)$/.test act
-      parseActions obj, delay + parseInt RegExp.$1
+    if /^wait(\d+)(\w+)$/.test act
+      t = ts[RegExp.$2]
+      throw "Invalid time segment '#{RegExp.$2}'" unless t
+      parseActions obj, delay + parseInt(RegExp.$1)*t
     else
       callAction act, obj, delay
 

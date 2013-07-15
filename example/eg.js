@@ -27,16 +27,13 @@ exports.create = function(port, peers) {
   });
 };
 
-exports.compare = function(A,B,size) {
+exports.compare = function(A,B) {
   for(var a in A) {
-    size--;
     if(A[a] !== B[a])
       return false;
     delete B[a];
   }
   for(var b in B)
-    return false;
-  if(size !== 0)
     return false;
   return true;
 };

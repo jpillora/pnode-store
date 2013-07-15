@@ -1,16 +1,16 @@
 
 require "colors"
-coffee = require "coffee-script"
 {fork} = require "child_process"
 util = require "util"
-fs = require "fs"
-path = require "path"
 colors = ["blue", "green", "cyan", "yellow"]
 
-#compile into temp for forking
-storeFile = path.join process.env.TMPDIR, 'store.js'
-storeCoffee = fs.readFileSync(path.join __dirname, 'store.coffee').toString()
-fs.writeFileSync storeFile, coffee.compile storeCoffee
+#compile child for forking
+coffee = require "coffee-script"
+fs = require "fs"
+path = require "path"
+childFile = path.join __dirname, 'child.js'
+childCoffee = fs.readFileSync(path.join __dirname, 'child.coffee').toString()
+fs.writeFileSync childFile, coffee.compile childCoffee
 
 runServer = (i, name, actions, cb) ->
   
@@ -20,7 +20,7 @@ runServer = (i, name, actions, cb) ->
 
   log "Starting '#{name}'", color
 
-  proc = fork(storeFile, [], {silent:true})
+  proc = fork(childFile, [], {silent:true})
 
   proc.stdout.on "data", (buffer) ->
     log buffer, color
@@ -32,8 +32,8 @@ runServer = (i, name, actions, cb) ->
 
   #process returned a result
   proc.on 'message', (result) ->
-    str = JSON.stringify(result)
-    log "#{name}: #{str}", if result.error then 'red' else 'white'
+    # str = JSON.stringify(result)
+    # log "#{name}: #{str}", if result.error then 'red' else 'white'
     cb result.error or null, result
 
   #send process all actions to execute
