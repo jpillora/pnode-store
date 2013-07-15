@@ -4,7 +4,7 @@
   "description": "Maintain a synchronized data store between connected Node.js applications",
   "main": "index.js",
   "scripts": {
-    "start":      "node node_modules/coffee-script/bin/coffee -w -b -o out/ src/",
+    "start": "node node_modules/coffee-script/bin/coffee -w -b -o out/ src/",
     "test": "node node_modules/mocha/bin/mocha",
     "prepublish": "node node_modules/coffee-script/bin/coffee -b -o out/ src/"
   },
@@ -42,6 +42,7 @@
     "async": "~0.2.8",
     "supervisor": "~0.5.2",
     "express": "~3.2.4",
-    "colors": "~0.6.0-1"
+    "colors": "~0.6.0-1",
+    "mocha": "~1.12.0"
   }
 }
