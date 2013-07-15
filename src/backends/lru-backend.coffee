@@ -20,14 +20,14 @@ class LRUBackend
     @cache = LRU options
   
   get: (key) ->
-    res = @cache.get(key)
-    console.log 'LRUBackend', 'get', key, res
-    return res
+    # res = 
+    # console.log 'LRUBackend', 'get', key, res
+    return @cache.get(key)
   
   set: (key, val) ->
-    res = @cache.set(key, val)
-    console.log 'LRUBackend', 'set', key, val, res
-    return res
+    # res = 
+    # console.log 'LRUBackend', 'set', key, val, res
+    return @cache.set(key, val)
   
   del: (key) ->
     return @cache.del(key)
@@ -46,3 +46,6 @@ class LRUBackend
 
 exports.create = (options) ->
   return new LRUBackend options
+
+
+  

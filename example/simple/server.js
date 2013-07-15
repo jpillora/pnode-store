@@ -12,3 +12,5 @@ var store = new PeerStore({
   port: port,
   peers: peers
 });
+
+store.set('foo',42)

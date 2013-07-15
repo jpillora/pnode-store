@@ -33,8 +33,8 @@ fns =
     buckets[n] = store.bucket n
 
   insert: (n, times) ->
-    for i in [0..times] by 1
-      buckets[n].set "#{name}-#{n}-#{guid()}", rand(50)
+    for i in [1..times] by 1
+      buckets[n].set "#{name}-#{n}-#{i}", rand(50)
 
   report: () ->
     throw "store not started" unless store

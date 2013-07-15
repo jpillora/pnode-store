@@ -18,22 +18,13 @@ class SessionStore extends connect.session.Store
     @bucket = @store.bucket 'default-session-store' 
 
   get: (sid, fn) ->
-    @log '<GET', sid
-    @bucket.get sid, (err, res) =>
-      @log '>GET', sid, err or res
-      fn(err, res)   
+    @bucket.get sid, (err, res) -> fn(err, res)   
 
   set: (sid, session, fn) ->
-    @log '<SET', sid
-    @bucket.set sid, session, (err, res) =>
-      @log '>SET', sid, err, res
-      fn(err, session)   
+    @bucket.set sid, session, (err, res) -> fn(err)   
 
   destroy: (sid, fn) ->
-    @log '<DEL', sid
-    @bucket.del sid, (err, res) =>
-      @log '>DEL', sid, err or res
-      fn(err, res) if fn   
+    @bucket.del sid, (err, res) -> fn(err) if fn
 
 #also extend base
 Base.mixin SessionStore

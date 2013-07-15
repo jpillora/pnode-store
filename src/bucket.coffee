@@ -7,6 +7,13 @@ Base = require "./base"
 helper = require "./helper"
 LRUBackend = require "./backends/lru-backend"
 
+bankendProps = 
+  'async':'boolean'
+  'get':'function'
+  'getAll':'function'
+  'set':'function'
+  'del':'function'
+
 class Bucket extends EventEmitter
   #default backend
   name: "Bucket"
@@ -25,8 +32,9 @@ class Bucket extends EventEmitter
 
     @backend = create(opts)
 
-    if typeof @backend.async isnt 'boolean'
-      @err "backend must set async to 'true' or 'false'"
+    for prop, type of bankendProps
+      if typeof @backend[prop] isnt type
+        @err "backend must implement '#{prop}' of type '#{type}'"
 
     #a map of all clients with this bucket
     @clients = {}
@@ -104,7 +112,6 @@ class Bucket extends EventEmitter
           res = @backend[op].apply @backend, args
         catch e
           err = e
-        console.log 'sync op', op, res
         callback err, res
 
     @event op, args if op in ['set','del']
@@ -114,10 +121,10 @@ class Bucket extends EventEmitter
   backendDel: -> @backendOp 'del', arguments
 
   event: (op, args) ->
-    key = args.shift()
-    if typeof args[0] isnt 'function'
-      value = args.shift()
-    @log op, key, value or ''
+    key = args[0]
+    if typeof args[1] isnt 'function'
+      value = args[1]
+    # @log op, key, value or ''
     @emit op, key, value
     item = { op, key, value, t: Date.now() }
 

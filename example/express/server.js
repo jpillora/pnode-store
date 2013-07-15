@@ -32,7 +32,7 @@ app.use(express.session({
 }));
 
 app.get('/', function(req, res) {
-  res.send(req.session.user || 'anon');
+  res.send({ user: req.session.user });
 });
 app.get('/login', function(req, res) {
   req.session.user = { foo: "bar" };
