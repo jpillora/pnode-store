@@ -1,9 +1,10 @@
 
-_ = require("lodash")
-async = require("async")
-Base = require("./base")
-helper = require("./helper")
-upnode = require('upnode')
+_ = require "lodash" 
+async = require "async" 
+Base = require "./base" 
+helper = require "./helper" 
+upnode = require 'upnode' 
+util = require "util"
 
 MAX_RETRIES = 3
 
@@ -27,7 +28,12 @@ module.exports = class CommsClient extends Base
     up = upnode @makeApi()
 
     @upnode = up.connect @port, @host
-    @upnode.on "up", (remote, dnode) =>
+
+    @upnode.on "remote", (remote, dnode) =>
+
+      dnode.on 'error', (e) =>
+        @err "dnode error: #{e.stack}"
+
       numRetries = 0
       @initRemote remote
       @connected = true
@@ -36,6 +42,7 @@ module.exports = class CommsClient extends Base
 
     @upnode.on "down", =>
       @connected = false
+      @ready = false
       @log "disconnected"
       @emit "disconnected"
 
@@ -55,9 +62,9 @@ module.exports = class CommsClient extends Base
 
   #interface for server
   makeApi: ->
-    clients: _.keys @server.clients
     source: @server.id
-    buckets: @store.buckets.keys()
+    peers: _.keys @server.clients
+    buckets: @store.buckets.valMap (b) -> b.times()
 
   makeUpnodeProxy: (name) ->
     return =>
@@ -67,6 +74,7 @@ module.exports = class CommsClient extends Base
       true
 
   initRemote: (rem) ->
+
     @remote = {}
     #create upnode proxies to each function
     _.each rem, (fn, name) =>
@@ -74,21 +82,23 @@ module.exports = class CommsClient extends Base
       @remote[name] = @makeUpnodeProxy name
 
     #add peers
-    rem.clients.forEach @server.add
+    rem.clients.forEach @server.addClient
 
     #compare server time
-    async.times 10, (n, next) =>
+    async.timesSeries 3, (n, next) =>
       clientT = Date.now()
       rem.time (serverT) =>
         trip = Math.round((Date.now() - clientT)/2)
-        diff = clientT - (serverT + trip)
+        diff = (serverT + trip) - clientT
         next null, diff
-    , (err, results) =>
 
+    , (err, results) =>
       return @log "remote error", err if err
       sum = results.reduce ((s,n)->s+n),0
       @tDiff = Math.round sum/results.length
       @ready = true
+      @log "avg rtt: #{@tDiff}"
+      @emit 'ready'
 
     null
 

@@ -32,6 +32,16 @@ PeerStore = class PeerStore extends Base
     @server = new CommsServer @
     @buckets = new Set()
 
+    #notify all buckets of client readys
+    @server.on 'readyClient', (client) =>
+      @log "client ready"
+      buckets = client?.internal?.remote?.buckets
+      unless buckets
+        @log "no buckets"
+        return
+      _.each buckets, (times, name) =>
+        @buckets.get(name)?.ping(client.id, times)
+
     #notify all buckets of client removals
     @server.on 'removeClient', (client) =>
       @buckets.each (name, bucket) =>
@@ -39,7 +49,7 @@ PeerStore = class PeerStore extends Base
 
     #create the default bucket
     @defaultBucket = @bucket "default-peer-store"
-    #extend its interface
+    #extend this interface by the default bucket
     Bucket::publics.forEach (fn) =>
       @[fn] = @defaultBucket[fn]
 

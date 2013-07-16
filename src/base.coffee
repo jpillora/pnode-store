@@ -6,7 +6,7 @@ Base = class Base extends EventEmitter
   toString: ->
     @name + (if @id then ': ' + @id else '') + ':'
   err: (str) ->
-    throw new Error "#{@}#{str}"
+    throw "#{@} #{str}"
   log: ->
     return unless @store.opts.debug
     console.log.apply console, [@toString()].concat Array::slice.call arguments

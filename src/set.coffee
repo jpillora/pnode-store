@@ -36,3 +36,9 @@ module.exports = class Set extends Base
     for k,v of @_obj
       res.push fn k,v
     res
+
+  valMap: (fn) ->
+    res = {}
+    for k,v of @_obj
+      res[k] = fn v
+    res

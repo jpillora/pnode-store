@@ -42,11 +42,15 @@ class Bucket extends EventEmitter
     @t0 = null
     @tN = null
 
-    @pingAll()
+    # ping all existing *ready* clients
+    if @store.server.status is "up"
+      @pingAll()
 
+    # new clients will ping us as they become ready
+    
   pingAll: ->
     #ping all 
-    @store.server.broadcast 'pingBucket', [@store.server.id, @id, @restoreHistory]
+    @store.server.broadcast 'pingBucket', [@id, @store.server.id, @times(), @restoreHistory]
 
   restoreHistory: (err, pingList) ->
     @err err if err
@@ -57,20 +61,27 @@ class Bucket extends EventEmitter
     #TODO using retrieved histories AND client time diffs
     #     restore history by performing missing ops
 
-
   #fired when this bucket has been pinged
-  ping: (source) ->
+  # ping will: accept other bucket times
+  #        and return this buckets times
+  ping: (source, times) ->
     if source is @store.server.id
       @err "pinged by self..."
 
-    @log "pinged by #{source}"
-    #client 'source' just pinged me, must also have this bucket
+    @log "pinged by #{source} with times:", times
+
+    #client 'source' just pinged, client must also have this bucket
     @clients[source] = true
+
+    client = @store.server.clients[source]
+    if client
+      client.log
+
     return @times()
 
   #client lost - remove their flag
   pong: (source) ->
-    @log "PONG #{source}"
+    @log "remove #{source}"
     @clients[source] = false
 
   # read methods - no propogation

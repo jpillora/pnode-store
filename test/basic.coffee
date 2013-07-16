@@ -17,10 +17,34 @@ check = (results, numServers, nameBucket, numEntries) ->
     else
       expect(result).to.deep.equal(first)
 
+
+describe '0. debugging >', ->
+
+  #start both, insert 5 random, check
+  it '0. experiment >', (done) ->
+    @timeout 5*1000
+    runner.run {
+      s1:
+        start: [51000, []]
+        create: ['foo']
+        'wait2s':
+          insert: ['foo', 5]
+          'wait2s':
+            report: []
+      s2: 
+        'wait1s':
+          start: [52000, [51000]],
+          create: ['foo']
+          'wait3s':
+            report: []
+    }, (err, results) ->
+      check results, 2, 'foo', 5
+      done()
+
 describe '1. simple >', ->
 
   #start both, insert 5 random, check
-  xit '1. 1s waits >', (done) ->
+  xit '1. simple sync >', (done) ->
     @timeout 5*1000
     runner.run {
       s1:
@@ -42,7 +66,7 @@ describe '1. simple >', ->
       done()
 
   #start both, insert 5 random, check
-  it '2. 200ms waits >', (done) ->
+  xit '2. faster simple sync >', (done) ->
     @timeout 5*1000
     runner.run {
       s1:
@@ -62,6 +86,27 @@ describe '1. simple >', ->
 
     }, (err, results) ->
       check results, 2, 'bar', 20
+      done()
+
+  #start both, insert 5 random, check
+  xit '2. catch-up >', (done) ->
+    @timeout 5*1000
+    runner.run {
+      s1:
+        start: [54000, []]
+        create: ['bar']
+        insert: ['bar', 5]
+        'wait500ms':
+          report: []
+      s2: 
+        'wait300ms':
+          start: [55000, [54000]], 
+          create: ['bar']
+          'wait200ms':
+            report: []
+
+    }, (err, results) ->
+      check results, 2, 'bar', 5
       done()
 
 

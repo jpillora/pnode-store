@@ -3,6 +3,7 @@ _ = require("lodash")
 Base = require("./base")
 helper = require("./helper")
 CommsClient = require("./client")
+Bucket = require("./Bucket")
 upnode = require('upnode')
 async = require('async')
 
@@ -17,6 +18,7 @@ module.exports = class CommsServer extends Base
     @host = helper.getIp()
     @port = @store.opts.port
     @id = "#{@host}:#{@port}"
+    @status = "down"
 
     #clients
     @clients = {}
@@ -26,48 +28,55 @@ module.exports = class CommsServer extends Base
 
       client = null
 
-      #when a client connects to us
-      dnode.on 'remote', =>
-        #add remote and all of it's peers
-        client = @add remote.source
-        unless client
-          @err "recieved connection from self..."
-        client.internal = {remote,dnode}
-
-        remote.buckets.forEach (name) =>
-          @store.buckets.get(name)?.ping(remote.source)
-
-        #add peers
-        remote.clients.forEach @add
-
-      dnode.on 'error', (err) =>
-        @log "connection error",err
+      dnode.on 'error', (e) =>
+        @err "dnode error: #{e.stack}"
         if client
           client.destroy()
+
+
+      @log "UPNODE CONNECTION"
+      #when a client connects to us
+      dnode.on 'remote', =>
+
+        @log "UPNODE REMOTE"
+
+        #add remote and all of it's peers
+        client = @addClient remote.source
+        unless client
+          @err "recieved connection from self..."
+
+        #store connection info
+        client.internal = {remote,dnode}
+
+        #add peers
+        remote.peers.forEach @addClient
+
 
       #dynamic api methods
       return @makeApi()
 
     @upnode = @upnodeDaemon.listen @port, =>
       @log "listening..."
-
-    @upnode.on 'error', (err) =>
-      @err err
+      @status = "up"
+      @emit "up"
 
     # this should be the upnode function above
     # @upnode.on 'connection', =>
 
-    #let variables land
-    process.nextTick =>
-      @store.opts.peers?.forEach @add
+    #allow variables land before
+    setTimeout =>
+      @store.opts.peers?.forEach @addClient
+    , 50
 
   destroy: ->
     @log "destroy"
+    @status = "down"
+    @emit "down"
     @upnode.close()
     for dest, client of @clients
       client.destroy()
 
-  add: (dest) ->
+  addClient: (dest) ->
 
     return false if dest is @id
     return @clients[dest] if @clients[dest]
@@ -80,13 +89,18 @@ module.exports = class CommsServer extends Base
 
     client = new CommsClient(@, host, port)
     @clients[dest] = client
+    
     @emit 'addClient', client
+
+    client.on 'ready', =>
+      @emit 'readyClient', client
+
     client.once 'destroy', =>
-      @remove client.id
+      @removeClient client.id
 
     return client
 
-  remove: (dest) ->
+  removeClient: (dest) ->
     return unless @clients[dest]
     @emit 'removeClient', @clients[dest]
     delete @clients[dest]
@@ -120,14 +134,14 @@ module.exports = class CommsServer extends Base
       buckets: {}
       time: (cb) =>
         cb Date.now()
-      pingBucket: (source, name, cb) =>
-        res = @store.buckets.get(name)?.ping?(source) or { missing: true }
+      pingBucket: (name, source, times, cb) =>
+        res = @store.buckets.get(name)?.ping?(source, times) or {}
         res.source = @id
         cb null, res
 
-    # add particular bucket methods
-    # calls are all to sent to the backend (do not trigger further broadcasts)
-    ['getAll','get','set','del'].forEach (fnName) =>
+    # add public bucket methods
+    # calls are all to sent to their backend (do not trigger further broadcasts)
+    Bucket::publics.forEach (fnName) =>
       api[fnName] = =>
         args = helper.arr arguments
         callback = args[args.length-1]
@@ -138,6 +152,8 @@ module.exports = class CommsServer extends Base
         bucket = @store.buckets.get bucketName
         unless bucket
           return callback "has no bucket: #{bucketName}"
+
+        @log "#{bucketName}.#{fnName}('#{args[0]}'...)"
         bucket.backendOp fnName, args
 
     return api

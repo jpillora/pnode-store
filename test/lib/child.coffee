@@ -74,10 +74,10 @@ callAction = (action, args, delay) ->
 
 parseActions = (actions, delay = 0) ->
   for act,obj of actions
-    if /^wait(\d+)(\w+)$/.test act
-      t = ts[RegExp.$2]
-      throw "Invalid time segment '#{RegExp.$2}'" unless t
-      parseActions obj, delay + parseInt(RegExp.$1)*t
+    if /^wait(\d+(\.\d+)?)(\w+)$/.test act
+      t = ts[RegExp.$3]
+      throw "Invalid time segment '#{RegExp.$3}'" unless t
+      parseActions obj, delay + parseFloat(RegExp.$1)*t
     else
       callAction act, obj, delay
 
