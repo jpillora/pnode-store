@@ -33,27 +33,23 @@ module.exports = class CommsServer extends Base
         if client
           client.destroy()
 
-
-      @log "UPNODE CONNECTION"
       #when a client connects to us
       dnode.on 'remote', =>
-
-        @log "UPNODE REMOTE"
 
         #add remote and all of it's peers
         client = @addClient remote.source
         unless client
           @err "recieved connection from self..."
 
-        #store connection info
+        #store and emit connection info
         client.internal = {remote,dnode}
+        @emit 'remoteClient', remote, dnode
 
         #add peers
         remote.peers.forEach @addClient
 
-
       #dynamic api methods
-      return @makeApi()
+      return @makeApi(remote)
 
     @upnode = @upnodeDaemon.listen @port, =>
       @log "listening..."
@@ -127,7 +123,8 @@ module.exports = class CommsServer extends Base
       async.parallel fns, callback
 
   #expose methods to client
-  makeApi: ->
+  makeApi: (remote) ->
+
     api =
       source: @id
       clients: _.keys @clients
@@ -138,6 +135,12 @@ module.exports = class CommsServer extends Base
         res = @store.buckets.get(name)?.ping?(source, times) or {}
         res.source = @id
         cb null, res
+
+      queryBucket: (name, t1, t2, cb) =>
+        bucket = @store.buckets.get(name)
+        unless bucket
+          return cb "missing bucket: #{name}"
+        bucket.queryRange t1, t2, cb
 
     # add public bucket methods
     # calls are all to sent to their backend (do not trigger further broadcasts)
@@ -153,8 +156,7 @@ module.exports = class CommsServer extends Base
         unless bucket
           return callback "has no bucket: #{bucketName}"
 
-        @log "#{bucketName}.#{fnName}('#{args[0]}'...)"
-        bucket.backendOp fnName, args
+        bucket.backendOp fnName, args, { remote: remote.source or true }
 
     return api
 

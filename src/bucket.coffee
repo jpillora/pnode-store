@@ -7,6 +7,7 @@ Base = require "./base"
 helper = require "./helper"
 LRUBackend = require "./backends/lru-backend"
 
+#expected interface
 bankendProps = 
   'async':'boolean'
   'get':'function'
@@ -24,7 +25,11 @@ class Bucket extends EventEmitter
   constructor: (@store, @id, opts = {}) ->
     @log "created"
     _.bindAll @
-    if opts.backend?.create?
+    if opts.backend
+
+      unless typeof opts.backend.create is 'function'
+        @err "must export a 'create' function"
+
       create = opts.backend.create
       delete opts.backend
     else
@@ -34,7 +39,7 @@ class Bucket extends EventEmitter
 
     for prop, type of bankendProps
       if typeof @backend[prop] isnt type
-        @err "backend must implement '#{prop}' of type '#{type}'"
+        @err "backend must implement '#{prop}' #{type}"
 
     #a map of all clients with this bucket
     @clients = {}
@@ -50,16 +55,12 @@ class Bucket extends EventEmitter
     
   pingAll: ->
     #ping all 
-    @store.server.broadcast 'pingBucket', [@id, @store.server.id, @times(), @restoreHistory]
+    @store.server.broadcast 'pingBucket', [@id, @store.server.id, @times(), @pingsRecieved]
 
-  restoreHistory: (err, pingList) ->
+  pingsRecieved: (err, pingList) ->
     @err err if err
     return if pingList.length is 0
-
     @log "pingList", pingList
-
-    #TODO using retrieved histories AND client time diffs
-    #     restore history by performing missing ops
 
   #fired when this bucket has been pinged
   # ping will: accept other bucket times
@@ -73,11 +74,89 @@ class Bucket extends EventEmitter
     #client 'source' just pinged, client must also have this bucket
     @clients[source] = true
 
+    #if client exists and has data we need - retrive it
     client = @store.server.clients[source]
-    if client
-      client.log
+    if client and times.t0 and times.tN
+      @retrieveHistory client, times
 
     return @times()
+
+  retrieveHistory: (client, times) ->
+    @log "get history..."
+
+    delay = 10000
+    t1 = times.t0
+    t2 = times.tN + delay
+
+    sendQuery = =>
+      # setTimeout =>
+      client.remote.queryBucket @id, t1, t2, @gotHistory
+      # , delay
+
+    if client.connected is true
+      sendQuery()
+    else
+      client.once 'connected', sendQuery
+
+  queryRange: (t1, t2, cb) ->
+
+    @log "history query:",t1,t2,@times()
+
+    keys = {}
+    for h, i in @history
+      unless t1 <= h.t <= t2
+        @log "history skip", h
+        continue 
+      # @log "history query item", h
+      if h.op is 'set'
+        keys[h.key] = i
+      else if h.op is 'del'
+        keys[h.key] = null
+
+    results = { items: {}, length: 0 }
+    for k,i of keys
+      continue if i is null
+      h = @history[i]
+      results.t0 = h.t unless results.t0
+      results.tN = h.t
+      results.items[h.key] = [h.t, h.value]
+      results.length++
+
+    cb null, results
+
+  gotHistory: (err, results) =>
+    return @log "history error: #{err}" if err
+    return unless results.length > 0
+
+    @log "got history: #{results.length}"
+
+    #compare incoming results the corresponding time period
+    for h, i in @history
+      rk = h.key
+      break if h.t < results.tN
+      item = results.items[rk]
+      #incoming doesnt have this item
+      unless item
+        continue
+
+      #history contains a more recent version (includes deletes)
+      if h.t > item[0]
+        #wipe and skip
+        results.items[rk] = null
+        continue
+
+    tmp = @history.length
+    #remaining items need to be stored and spliced into history
+    for k, arr of results.items
+      continue if arr is null
+      [t, v] = arr
+      @backendOp 'set', [k, v], {history: false}
+      @history.push {op:'set', key:k, value:v, t}
+
+    #splice requires binary search - we'll quick sort instead for now
+    @history.sort (a,b) -> if a.t > b.t then 1 else -1
+
+    @log "history updated: #{tmp} -> #{@history.length}"
 
   #client lost - remove their flag
   pong: (source) ->
@@ -110,7 +189,7 @@ class Bucket extends EventEmitter
     @store.server.broadcast op, args, @filterClients
 
   #interface to the given backend - enforces asynchrony
-  backendOp: (op, args) ->
+  backendOp: (op, args, opts = {}) ->
     args = helper.arr args
     callback = helper.getCallback args
 
@@ -125,23 +204,23 @@ class Bucket extends EventEmitter
           err = e
         callback err, res
 
-    @event op, args if op in ['set','del']
+    if op in ['set','del']
+      key = args[0]
+      if typeof args[1] isnt 'function'
+        value = args[1]
+      # @log op, key, value or ''
+      @emit op, key, value
+
+      if opts.history isnt false
+        item = { op, key, value, t: Date.now() }
+        @t0 = item.t if @history.length is 0
+        @tN = item.t
+        @history.push item
+
     null
 
   backendSet: -> @backendOp 'set', arguments
   backendDel: -> @backendOp 'del', arguments
-
-  event: (op, args) ->
-    key = args[0]
-    if typeof args[1] isnt 'function'
-      value = args[1]
-    # @log op, key, value or ''
-    @emit op, key, value
-    item = { op, key, value, t: Date.now() }
-
-    @t0 = item.t if @history.length is 0
-    @tN = item.t
-    @history.push item
 
   times: -> { t0: @t0, tN: @tN }
 

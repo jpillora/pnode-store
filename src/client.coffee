@@ -97,7 +97,7 @@ module.exports = class CommsClient extends Base
       sum = results.reduce ((s,n)->s+n),0
       @tDiff = Math.round sum/results.length
       @ready = true
-      @log "avg rtt: #{@tDiff}"
+      @log "time difference: #{@tDiff}"
       @emit 'ready'
 
     null

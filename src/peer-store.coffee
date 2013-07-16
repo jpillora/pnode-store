@@ -33,14 +33,17 @@ PeerStore = class PeerStore extends Base
     @buckets = new Set()
 
     #notify all buckets of client readys
-    @server.on 'readyClient', (client) =>
-      @log "client ready"
-      buckets = client?.internal?.remote?.buckets
+    @server.on 'remoteClient', (remote, dnode) =>
+      @log "client remote"
+      buckets = remote?.buckets
       unless buckets
         @log "no buckets"
         return
-      _.each buckets, (times, name) =>
-        @buckets.get(name)?.ping(client.id, times)
+
+      dnode.once 'data', =>
+        @log "data !"
+        _.each buckets, (times, name) =>
+          @buckets.get(name)?.ping(remote.source, times)
 
     #notify all buckets of client removals
     @server.on 'removeClient', (client) =>
