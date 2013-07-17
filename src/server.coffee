@@ -3,7 +3,7 @@ _ = require("lodash")
 Base = require("./base")
 helper = require("./helper")
 CommsClient = require("./client")
-Bucket = require("./Bucket")
+Bucket = require("./bucket")
 upnode = require('upnode')
 async = require('async')
 

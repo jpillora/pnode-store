@@ -5,7 +5,7 @@ _ = require("lodash")
 async = require "async"
 Base = require "./base"
 helper = require "./helper"
-LRUBackend = require "./backends/lru-backend"
+ObjectBackend = require "./backends/obj-backend"
 
 #expected interface
 bankendProps = 
@@ -33,7 +33,7 @@ class Bucket extends EventEmitter
       create = opts.backend.create
       delete opts.backend
     else
-      create = LRUBackend.create
+      create = ObjectBackend.create
 
     @backend = create(opts)
 
@@ -210,6 +210,8 @@ class Bucket extends EventEmitter
         value = args[1]
       # @log op, key, value or ''
       @emit op, key, value
+
+      # @log "#{op}(#{args[0]}...)" + (if opts.remote then "from remote #{opts.remote}" else "")
 
       if opts.history isnt false
         item = { op, key, value, t: Date.now() }

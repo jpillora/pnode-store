@@ -6,14 +6,61 @@ store = null
 buckets = {}
 inserts = 0
 
-#helpers
-guid = -> (Math.random() * Math.pow(2, 32)).toString(16)
-rand = (max) -> (Math.floor(Math.random()*max))
 
+send = (err, data) ->
+  if err
+    err = err + "\n" + (new Error).stack
+  process.send {err, data}
+
+#caught error
+process.on 'uncaughtException', (e) ->
+  send e.stack
+
+#call a function
+process.on 'message', (obj) ->
+  name = obj.name
+  parseActions obj.actions 
+
+# get sample obj
+fs = require "fs"
+
+sampleJson = fs.readFileSync "./test/data/sample.json"
+unless sampleJson
+  send "missing sample.json"
+try
+  sampleObj = JSON.parse sampleJson
+catch e
+  send "invalid sample.json"
+
+#helpers
+guid = ->
+  (Math.random() * Math.pow(2, 32)).toString(16)
+rand = (max) ->
+  (Math.floor(Math.random()*max))
+
+
+getItem = (type) ->
+  if type is 'object'
+    return sampleObj
+  else if type is 'number'
+    return rand(100)
+  else
+    send "invalid type: #{type}"
+
+insertItem = (type, n) ->
+  send "bucket #{n} does not exist" unless buckets[n] 
+  buckets[n].set "#{name}-#{n}-#{++inserts}", getItem(type)
+
+insertItemTimes = (type, n, i) ->
+  send "Invalid number" unless i > 0
+  insertItem(type, n) while i-- > 0
+
+
+# test fns
 fns =
   start: (port, peers) ->
     if typeof port isnt 'number'
-      throw "port #{port} must be a number"
+      send "port #{port} must be a number"
 
     peers = peers.map (p) ->
       if typeof p is 'number'
@@ -26,29 +73,34 @@ fns =
       peers: peers
 
   create: (n) ->
-    throw "store not started" unless store
+    send "store not started" unless store
     buckets[n] = store.bucket n
 
-  insert: insertTimes
+  insert: (type, n, i) ->
+    insertItemTimes type, n, i
 
-  insertOver: (n, i, sec) ->
-    throw "Invalid number" unless i > 0 and sec > 0
+  insertOver: (type, n, i, sec) ->
+    send "Invalid number" unless i > 0 and sec > 0
 
     ms = sec*1000
     
     itemN = 1
-    itemI = i/ms
+    itemI = ms/i
 
-    while itemI < 30
-      itemI *= 2
-      itemN *= 2
+    while itemI < 15
+      itemI *= 10
+      itemN *= 10
 
-    insert = ->
-      insertTimes(n, itemN)
+    if i%itemN isnt 0
+      send "#{i} isnt a multiple of #{itemN}"
+
+    add = ->
+      insertItemTimes type, n, itemN
       i -= itemN
-      if i > 0
-        setTimeout insert, itemI
-    insert()
+      clearTimeout(int) if i is 0
+
+    add()
+    int = setInterval add, itemI
 
   report: () ->
     throw "store not started" unless store
@@ -60,26 +112,19 @@ fns =
         callback err
 
     async.map store.buckets.keys(), getAll, (err) ->
-      processSend err, data
+      send err, data
 
 
 
-insertRandom = (n) ->
-  throw "bucket #{n} does not exist" unless buckets[n] 
-  buckets[n].set "#{name}-#{n}-#{++inserts}", rand(100)
-insertTimes = (n, i) ->
-  throw "Invalid number" unless i > 0
-  console.log "inserting #{i} into #{n}"
-  insertRandom(n) while i-- > 0
 
 callAction = (action, args, ms) ->
 
   fn = fns[action]
   unless fn
-    throw "missing action: '#{action}'"
+    send "missing action: '#{action}'"
 
   unless fn.length is args.length
-    throw "action: '#{action}' expects #{fn.length} args"
+    send "action: '#{action}' expects #{fn.length} args"
 
   # console.log "+#{ms}ms", action
   setTimeout ->
@@ -87,7 +132,7 @@ callAction = (action, args, ms) ->
       console.log "+++ #{ms}ms - CALLING #{action}(#{args.join(',')})"
       fn.apply null, args
     catch e
-      processSend e.stack
+      send e.stack
   , ms
 
   null
@@ -103,14 +148,4 @@ parseActions = (actions) ->
     else
       callAction fnName, args, delay*1000
 
-processSend = (err, data) ->
-  process.send {err, data}
 
-#call a function
-process.on 'message', (obj) ->
-  name = obj.name
-  parseActions obj.actions 
-
-#caught error
-process.on 'uncaughtException', (e) ->
-  processSend e.stack

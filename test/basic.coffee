@@ -52,8 +52,7 @@ check = (err, results, numServers, nameBucket, numEntries) ->
 
 describe '1. simple >', ->
 
-  #start both, insert 5 random, check
-  it '1. simple sync >', (done) ->
+  it '1. low volume >', (done) ->
     @timeout 5*1000
     runner.run {
       s1:[
@@ -76,8 +75,7 @@ describe '1. simple >', ->
       check err, results, 2, 'foo', 100
       done()
 
-  #start both, insert 5 random, check
-  it '2. faster simple sync >', (done) ->
+  it '2. faster, medium volume >', (done) ->
     @timeout 5*1000
     runner.run {
       s1:[
@@ -100,26 +98,89 @@ describe '1. simple >', ->
       check err, results, 2, 'bar', 1000
       done()
 
-  #start both, insert 5 random, check
-  it.only '2. high volume 2 server simple sync >', (done) ->
-    @timeout 5*1000
+  it '3. high volume, 2 server, number values >', (done) ->
+    @timeout 15*1000
     runner.run {
       s1:[
-        ['start', 51000, [52000]]
+        ['start', 51000, []]
         ['create','bar']
+        ['wait',0.5]
+        ['insert','number','bar', 7600]
         ['wait',1]
-        ['insertOver','bar', 50, 2]
-        ['wait',3]
         ['report']
       ]
       s2: [
         ['start', 52000, [51000]]
         ['create','bar']
-        ['wait',4]
+        ['wait',0.5]
+        ['insert','number','bar', 6400]
+        ['wait',1]
         ['report']
       ]
     }, (err, results) ->
-      check err, results, 2, 'bar', 1000
+      check err, results, 2, 'bar', 14000
+      done()
+
+  it '3. high volume, 2 server, object values >', (done) ->
+    @timeout 15*1000
+    runner.run {
+      s1:[
+        ['start', 51000, []]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 650]
+        ['wait',1]
+        ['report']
+      ]
+      s2: [
+        ['start', 52000, [51000]]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 650]
+        ['wait',1]
+        ['report']
+      ]
+    }, (err, results) ->
+      check err, results, 2, 'bar', 1300
+      done()
+
+  it '3. high volume, 4 server, object values >', (done) ->
+    @timeout 15*1000
+    runner.run {
+      s1:[
+        ['start', 51000, []]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 400]
+        ['wait',1]
+        ['report']
+      ]
+      s2: [
+        ['start', 52000, [51000]]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 400]
+        ['wait',1]
+        ['report']
+      ]
+      s3: [
+        ['start', 53000, [51000]]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 400]
+        ['wait',1]
+        ['report']
+      ]
+      s4: [
+        ['start', 54000, [51000]]
+        ['create','bar']
+        ['wait',0.5]
+        ['insert','object','bar', 400]
+        ['wait',1]
+        ['report']
+      ]
+    }, (err, results) ->
+      check err, results, 4, 'bar', 1600
       done()
 
 
