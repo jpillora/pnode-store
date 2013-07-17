@@ -2,6 +2,7 @@
 require "colors"
 {fork} = require "child_process"
 util = require "util"
+_ = require "lodash"
 colors = ["blue", "green", "cyan", "yellow"]
 
 #compile child for forking
@@ -27,14 +28,10 @@ runServer = (i, name, actions, cb) ->
 
   proc.stderr.on "data", (buffer) ->
     log buffer, 'red'
-    cb buffer.toString()
-    proc.kill()
 
   #process returned a result
-  proc.on 'message', (result) ->
-    # str = JSON.stringify(result)
-    # log "#{name}: #{str}", if result.error then 'red' else 'white'
-    cb result.error or null, result
+  proc.on 'message', (obj) ->
+    cb obj.err, [name, obj.data]
 
   #send process all actions to execute
   proc.send {name, actions}
@@ -45,18 +42,22 @@ exports.run = (test, callback) ->
 
   procs = []
   results = []
-  cb = (err, data) ->
-    #accumulate data
-    results.push data
-    return unless err or results.length is procs.length
-    #kill all
-    proc.kill() for proc in procs
-    #return results to test
-    callback err, results
-
   #start test
-  for serverName, actions of test
-    proc = runServer procs.length, serverName, actions, cb
-    procs.push proc
+  _.each test, (actions, serverName) ->
+    p = runServer procs.length, serverName, actions, (err, data) ->
+      #accumulate data
+      results.push data
+      p.kill()
 
+      if err
+        console.log "#{serverName} CRASH!"
+        for proc in procs
+          proc.kill()
+      else if results.length < procs.length
+        return
+
+      #return results to test
+      callback err, results
+
+    procs.push p
   null

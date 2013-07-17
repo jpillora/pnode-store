@@ -4,14 +4,11 @@ async = require "async"
 name = null
 store = null
 buckets = {}
+inserts = 0
 
 #helpers
 guid = -> (Math.random() * Math.pow(2, 32)).toString(16)
 rand = (max) -> (Math.floor(Math.random()*max))
-
-ts =
-  ms: 1
-  s: 1000
 
 fns =
   start: (port, peers) ->
@@ -32,9 +29,26 @@ fns =
     throw "store not started" unless store
     buckets[n] = store.bucket n
 
-  insert: (n, times) ->
-    for i in [1..times] by 1
-      buckets[n].set "#{name}-#{n}-#{i}", rand(50)
+  insert: insertTimes
+
+  insertOver: (n, i, sec) ->
+    throw "Invalid number" unless i > 0 and sec > 0
+
+    ms = sec*1000
+    
+    itemN = 1
+    itemI = i/ms
+
+    while itemI < 30
+      itemI *= 2
+      itemN *= 2
+
+    insert = ->
+      insertTimes(n, itemN)
+      i -= itemN
+      if i > 0
+        setTimeout insert, itemI
+    insert()
 
   report: () ->
     throw "store not started" unless store
@@ -42,44 +56,55 @@ fns =
 
     getAll = (n, callback) ->
       store.bucket(n).getAll (err, results) ->
-        throw err if err
-        # console.log "BUCKET", n, err, results
         data[n] = results
-        callback null
+        callback err
 
     async.map store.buckets.keys(), getAll, (err) ->
-      throw err if err
-      # console.log "REPORT", data
-      process.send data
+      processSend err, data
 
-callAction = (action, args, delay) ->
+
+
+insertRandom = (n) ->
+  throw "bucket #{n} does not exist" unless buckets[n] 
+  buckets[n].set "#{name}-#{n}-#{++inserts}", rand(100)
+insertTimes = (n, i) ->
+  throw "Invalid number" unless i > 0
+  console.log "inserting #{i} into #{n}"
+  insertRandom(n) while i-- > 0
+
+callAction = (action, args, ms) ->
 
   fn = fns[action]
   unless fn
-    return process.send {error: "missing action: '#{action}'"}
+    throw "missing action: '#{action}'"
 
   unless fn.length is args.length
-    return process.send {error: "action: '#{action}' expects #{fn.length} args"}
+    throw "action: '#{action}' expects #{fn.length} args"
 
-  # console.log "+#{delay}ms"
+  # console.log "+#{ms}ms", action
   setTimeout ->
     try
-      console.log "+#{delay}ms - CALLING #{action}(#{args.join(',')})"
+      console.log "+++ #{ms}ms - CALLING #{action}(#{args.join(',')})"
       fn.apply null, args
     catch e
-      process.send {error: e.toString()}
-  , delay
+      processSend e.stack
+  , ms
 
   null
 
-parseActions = (actions, delay = 0) ->
-  for act,obj of actions
-    if /^wait(\d+(\.\d+)?)(\w+)$/.test act
-      t = ts[RegExp.$3]
-      throw "Invalid time segment '#{RegExp.$3}'" unless t
-      parseActions obj, delay + parseFloat(RegExp.$1)*t
+parseActions = (actions) ->
+  # console.log "+++", actions
+  delay = 0
+  for action in actions
+    fnName = action.shift()
+    args = action
+    if fnName is 'wait'
+      delay += args[0]
     else
-      callAction act, obj, delay
+      callAction fnName, args, delay*1000
+
+processSend = (err, data) ->
+  process.send {err, data}
 
 #call a function
 process.on 'message', (obj) ->
@@ -88,4 +113,4 @@ process.on 'message', (obj) ->
 
 #caught error
 process.on 'uncaughtException', (e) ->
-  process.send {error: e.toString()}
+  processSend e.stack
