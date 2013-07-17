@@ -18,14 +18,20 @@ defaultSubnets = [
   /^192\./
   /^[^0]\./
 ]
+
+exports.ips = []
+#fill ips
+for name, addrs of os.networkInterfaces()
+  for addr in addrs
+    if addr.family is 'IPv4'
+      exports.ips.push addr.address
+
 #choose first ip to match a subnet
 exports.getIp = (subnets = defaultSubnets) ->
-  for name, addrs of os.networkInterfaces()
-    for regex in subnets
-      for addr in addrs
-        if addr.family is 'IPv4'
-          if regex.test addr.address
-            return addr.address
+  for regex in subnets
+    for ip in exports.ips
+      if regex.test ip
+        return ip
   return null
 
 exports.guid = ->

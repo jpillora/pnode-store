@@ -73,8 +73,11 @@ module.exports = class CommsServer extends Base
       client.destroy()
 
   addClient: (dest) ->
-
-    return false if dest is @id
+    #ensure not connecting to self
+    for ip in helper.ips
+      d = "#{ip}:#{@port}"
+      if d is dest
+        return false
     return @clients[dest] if @clients[dest]
 
     {host, port} = helper.parseDestination dest
