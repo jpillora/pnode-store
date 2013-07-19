@@ -4,50 +4,72 @@
 
 ## Features
 
-* Replicate all operations
-* Auto batches operations to prevent flooding the network
-* Create data buckets to separate data
+* Fast
+  * All data is transfered over [dnode](https://github.com/substack/dnode)
+  * Achieve about 1.2k replications/sec
+* Replicate mutating operations
+* Connections automatically recover
+  * Status pings and reconnects are controlled using [upnode](https://github.com/substack/upnode)
+* Create smart data buckets for control over replication
 * Implement your own bucket types
-  * Default bucket type is an [`lru-cache`](https://github.com/isaacs/node-lru-cache) so you may set size and TTL
-* Contains an express session store
+  * Default bucket type is a plain object (pure memory)
+  * [lru-cache](https://github.com/isaacs/node-lru-cache) bucket type is operational so you may set size and TTL.
+  * LevelDB bucket type in progress...
+* Express session store built-in
 
 ## Installation
 
 `npm install peer-store`
 
-## Examples
+## Usage
 
-### Simple store
-
+Server A at 10.0.2.1:
 ``` javascript
-...
+var PeerStore = require("peer-store");
 
+var store = new PeerStore({
+  peers: ['10.0.2.2'];
+});
+
+store.set('foo',42);
 ```
 
-This will create a `dnode` TCP server, listening for session data on `7001` and will send session data to `8001` and `9001`
+Server B at 10.0.2.2:
+``` javascript
+var PeerStore = require("peer-store");
 
+var store = new PeerStore({
+  peers: ['10.0.2.1'];
+});
+
+store.set('bar',7);
+```
+
+On both Sever A and B:
+store.getAll(function(data) {
+  
+  console.log(data); // { foo: 42, bar: 7 } 
+
+});
 
 ### Express/Conect session store
 
+In addition to the above, do:
+
 ``` javascript
 app.use(express.session({
-  store: 
-  secret: 'secret'
+  store: store.sessionStore(),
+  secret: 'secr3t'
 }));
-
 ```
 
-# API
+Now all your sessions are magically shared
 
-## new PeerStore(`options`)
-
-  Creates a new instance
-
-### `options`
+### API
 
   *Todo...*
 
-# Issues
+### Issues
 
 `dnode` depends on `node-gyp`, so in order to `npm install` on Windows, you'll need to follow the `node-gyp` [Installation](https://github.com/TooTallNate/node-gyp#installation) guide. Unix and Mac requires `python` and `make` so it *should* just work.
 
@@ -57,11 +79,7 @@ Quick windows links:
 * Download [Visual C++ Express 2010](http://go.microsoft.com/?linkid=9709949)
 * Download [Windows 7 SDK](http://www.microsoft.com/en-us/download/details.aspx?displayLang=en&id=8279) (Windows 7 Only)
 
-## Todo
-
-* Stuff...
-
-## Credits
+### Credits
 
 Most of the work is being done by substack's [dnode](https://github.com/substack/dnode)
 
