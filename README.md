@@ -46,11 +46,12 @@ store.set('bar',7);
 ```
 
 On both Sever A and B:
-store.getAll(function(data) {
-  
-  console.log(data); // { foo: 42, bar: 7 } 
 
+``` javascript
+store.getAll(function(data) {
+  console.log(data); // { foo: 42, bar: 7 } 
 });
+```
 
 ### Express/Conect session store
 

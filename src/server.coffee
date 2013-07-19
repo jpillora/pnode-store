@@ -16,7 +16,7 @@ module.exports = class CommsServer extends Base
     
     _.bindAll @
     @host = helper.getIp()
-    @port = @store.opts.port
+    @port = @store.opts.port or 7557
     @id = "#{@host}:#{@port}"
     @status = "down"
 
@@ -82,9 +82,11 @@ module.exports = class CommsServer extends Base
 
     {host, port} = helper.parseDestination dest
 
-    unless host and port
+    unless host
       @log "Invalid destination '#{dest}'"
       return false
+    unless port
+      port = @port
 
     client = new CommsClient(@, host, port)
     @clients[dest] = client
