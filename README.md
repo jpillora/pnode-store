@@ -9,8 +9,9 @@
   * Achieve about 1.2k replications/sec
 * Replicate mutating operations
 * Connections automatically recover
-  * Status pings and reconnects are controlled using [upnode](https://github.com/substack/upnode)
+  * Status pings and reconnects are controlled by [upnode](https://github.com/substack/upnode)
 * Create smart data buckets for control over replication
+  * Prefills buckets with peer data
 * Implement your own bucket types
   * Default bucket type is a plain object (pure memory)
   * [lru-cache](https://github.com/isaacs/node-lru-cache) bucket type is operational so you may set size and TTL.
