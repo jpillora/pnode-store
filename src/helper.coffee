@@ -19,7 +19,7 @@ defaultSubnets = [
   /^[^0]\./
 ]
 
-exports.ips = []
+exports.ips = ['127.0.0.1','localhost']
 #fill ips
 for name, addrs of os.networkInterfaces()
   for addr in addrs

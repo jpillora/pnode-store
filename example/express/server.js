@@ -1,10 +1,6 @@
 
 
 //start with node server <http-port> <peer-store> <other-peer-stores...>
-//e.g.
-// node server 5000 5001 localhost:6001 localhost:7001
-// node server 6000 6001
-// node server 6000 7001
 
 var express = require('express');
 var PeerStore = require('../../');

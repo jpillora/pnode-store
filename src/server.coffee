@@ -78,6 +78,7 @@ module.exports = class CommsServer extends Base
       d = "#{ip}:#{@port}"
       if d is dest
         return false
+    
     return @clients[dest] if @clients[dest]
 
     {host, port} = helper.parseDestination dest
