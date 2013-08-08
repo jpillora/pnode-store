@@ -154,9 +154,18 @@ class Bucket extends EventEmitter
     broadcastArgs = [@id].concat(args)
     async.parallel [
       #broadcast op to all other buckets 
-      (cb) => @broadcastOp op, broadcastArgs.concat(cb)
+      (cb) =>
+        t = setTimeout =>
+          @log "TIMEOUT!!!"
+          cb 'timeout'
+        , 2000
+        subcb = (err) =>
+          clearTimeout t
+          cb err
+        @broadcastOp op, broadcastArgs.concat(subcb)
       #do local op
-      (cb) => @backendOp op, args.concat(cb)
+      (cb) =>
+        @backendOp op, args.concat(cb)
     ], callback
 
   #broadcast operation, filtering clients missing this bucket
@@ -169,22 +178,25 @@ class Bucket extends EventEmitter
     args = helper.arr args
     callback = helper.getCallback args
 
+    res = null
     if @backend.async
       @backend[op].apply @backend, args.concat(callback)
+    else if callback is helper.noop
+      res = @backend[op].apply @backend, args
     else
-      process.nextTick =>
-        err = null
-        try
-          res = @backend[op].apply @backend, args
-        catch e
-          err = e
-        callback err, res
+      err = null
+      try
+        res = @backend[op].apply @backend, args
+      catch e
+        err = e
+      callback err, res
 
+    #emit events and update history
     if op in ['set','del']
       key = args[0]
       if typeof args[1] isnt 'function'
         value = args[1]
-      # @log op, key, value or ''
+      @log(op, key)
       @emit op, key, value
 
       # @log "#{op}(#{args[0]}...)" + (if opts.remote then "from remote #{opts.remote}" else "")
@@ -195,7 +207,8 @@ class Bucket extends EventEmitter
         @tN = item.t
         @history.push item
 
-    null
+    #synchronous return
+    res
 
   backendSet: -> @backendOp 'set', arguments
   backendDel: -> @backendOp 'del', arguments
