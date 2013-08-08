@@ -5,15 +5,6 @@ _ = require("lodash")
 async = require "async"
 Base = require "./base"
 helper = require "./helper"
-ObjectBackend = require "./backends/obj-backend"
-
-#expected interface
-bankendProps = 
-  'async':'boolean'
-  'get':'function'
-  'getAll':'function'
-  'set':'function'
-  'del':'function'
 
 class Bucket extends EventEmitter
   #default backend
@@ -22,24 +13,9 @@ class Bucket extends EventEmitter
   #public methods used for extending
   publics: ['getAll', 'get', 'set', 'del']
 
-  constructor: (@store, @id, opts = {}) ->
+  constructor: (@store, @id, @backend) ->
     @log "created"
     _.bindAll @
-    if opts.backend
-
-      unless typeof opts.backend.create is 'function'
-        @err "must export a 'create' function"
-
-      create = opts.backend.create
-      delete opts.backend
-    else
-      create = ObjectBackend.create
-
-    @backend = create(opts)
-
-    for prop, type of bankendProps
-      if typeof @backend[prop] isnt type
-        @err "backend must implement '#{prop}' #{type}"
 
     #a map of all clients with this bucket
     @clients = {}

@@ -15,7 +15,7 @@ class SessionStore extends connect.session.Store
 
   name: "SessionStore"
   constructor: (@store) ->
-    @bucket = @store.bucket 'default-session-store' 
+    @bucket = @store.bucket 'default-session-store'
 
   get: (sid, fn) ->
     @bucket.get sid, (err, res) -> fn(err, res)   

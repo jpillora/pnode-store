@@ -1,6 +1,6 @@
 {
   "name": "peer-store",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Maintain a synchronized data store between connected Node.js applications",
   "main": "index.js",
   "scripts": {

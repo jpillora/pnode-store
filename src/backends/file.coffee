@@ -30,3 +30,36 @@
 #     catch e
 
 #     return null
+
+
+class FileBackend
+
+  async: false
+
+  constructor: (options) ->
+    #TODO
+    # options for file location
+    # load sync on start
+    # write sync on process.exit (and during idle time?)
+    @data = {}
+  
+  get: (key) ->
+    return @data[key]
+  
+  set: (key, val) ->
+    return @data[key] = val
+  
+  del: (key) ->
+    delete @data[key]
+    return true
+  
+  getAll: ->
+    #copy data
+    obj = {}
+    for k,v of @data
+      obj[k] = v
+    return obj
+
+exports.create = (options) ->
+  return new FileBackend options
+

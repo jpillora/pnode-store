@@ -68,7 +68,7 @@ fns =
       return p
 
     store = new PeerStore
-      debug: true
+      debug: false
       port: port
       peers: peers
 

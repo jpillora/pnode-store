@@ -1,17 +1,19 @@
-_ = require("lodash")
-fs = require("fs")
-path = require("path")
-mkdirp = require("mkdirp")
-CommsServer = require("./server")
-helper = require("./helper")
-Base = require("./base")
-Bucket = require("./bucket")
-SessionStore = require("./session-store")
-Set = require("./set")
+_ = require "lodash" 
+fs = require "fs" 
+path = require "path" 
+mkdirp = require "mkdirp" 
+CommsServer = require "./server" 
+helper = require "./helper" 
+Base = require "./base" 
+Bucket = require "./bucket" 
+SessionStore = require "./session-store" 
+Set = require "./set" 
+backends = require "./backends"
 
 defaults =
-  debug: true
+  debug: false
   port: 7557
+  backend: 'obj'
 
 #Constructor
 PeerStore = class PeerStore extends Base
@@ -41,7 +43,6 @@ PeerStore = class PeerStore extends Base
         return
 
       dnode.once 'data', =>
-        @log "data !"
         _.each buckets, (times, name) =>
           @buckets.get(name)?.ping(remote.source, times)
 
@@ -57,11 +58,32 @@ PeerStore = class PeerStore extends Base
       @[fn] = @defaultBucket[fn]
 
   #get and insert a bucket with opts
-  bucket: (name, opts) ->
+  bucket: (name, backendName, opts) ->
+
     bucket = @buckets.get name
     return bucket if bucket
+
+    backendClass = null
+
+    if typeof backendName is 'string'
+      backendClass = backends.get backendName
+      unless backendClass
+        @err "backend '#{backendName}' is missing"
+    else
+      opts = backendName
+      #no backend defined, use default
+      backendClass = backends.get @opts.backend
+
+    #create instance
+    backend = backendClass.create opts
+
+    #validate instance
+    for prop, type of backends.props
+      if typeof backend[prop] isnt type
+        @err "backend must implement '#{prop}' #{type}"
+
     #create a new bucket
-    bucket = new Bucket @, name, opts
+    bucket = new Bucket @, name, backend
     @buckets.set name, bucket
     return bucket
 
@@ -76,5 +98,6 @@ PeerStore = class PeerStore extends Base
 
 #exports
 PeerStore.helper = helper
+PeerStore.addBackend = require("./backends").add
 module.exports = PeerStore
 
