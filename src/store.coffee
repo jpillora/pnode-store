@@ -16,6 +16,8 @@ class Store extends EventEmitter
 
     @opts = opts
     @channel = "_store-#{opts.name}"
+
+    @fresh = true
     @obj = {}
 
     #dynamic expose the initial state
@@ -23,11 +25,18 @@ class Store extends EventEmitter
     exposed[opts.name] = @peer.exposeDynamic => @obj
     @peer.expose _store: exposed
 
+    #only preload each remote once
+    preloads = []
+    
     preload = (remote) =>
       obj = remote._store?[opts.name]
-      return unless obj
+      return unless typeof obj is 'object'
+      return if preloads.indexOf(obj) >= 0
       #silently merge existing data
-      @set '', obj, true, true
+      for k,v of obj
+        @set k, v, true, true
+      preloads.push obj
+      return
 
     #grab existing remotes
     if @peer.name is 'Client'
@@ -39,34 +48,51 @@ class Store extends EventEmitter
     @peer.on 'remote', preload
 
     #subscribe to subsequent changes
-    @peer.subscribe @channel, (action, pathStr, value, merge) =>
-      @set pathStr, (if action is 'del' then undefined else value), merge, true
+    @peer.subscribe @channel, (doDelete, pathStr, value, merge) =>
+      @set pathStr, (if doDelete then undefined else value), merge, true
 
   object: ->
     @obj
 
   set: (pathStr, value, merge, silent) ->
     
+    #dont bother merging into an empty object
+    if @fresh
+      merge = false
+      @fresh = false
+
+    #merge instead of replace
     if merge and typeof value is 'object'
       for k,v of value
-        @set "#{pathStr}#{if pathStr then '.' else ''}#{k}", v, true, silent
+        if /^\d+$/.test k
+          k = "[#{k}]"
+        else if /^\d/.test(k) or /[^\w]/.test k
+          k = "['#{k}']"
+        else if pathStr
+          k = "." + k
+        @set pathStr+k, v, true, silent
       return
 
-    action = if value is undefined then 'del' else 'set'
+    #replace 
+    doDelete = value is undefined
 
     path = parsePath pathStr
+    #at least 1 path entry required
+    return if path.length is 0
+
     prop = path.pop()
 
-    o = deref @obj, path, action is 'set'
+    #derefernce path, while creating missing props
+    o = deref @obj, path, not doDelete
     return unless o
 
-    if action is 'del'
+    if doDelete
       delete o[prop]
     else
       o[prop] = value
 
-    @peer.publish @channel, action, pathStr, value, merge unless silent
-    @emit action, pathStr, value
+    @peer.publish @channel, doDelete, pathStr, value, merge unless silent
+    @emit 'change', pathStr, value
 
   del: (pathStr) ->
     return @set pathStr
@@ -106,8 +132,12 @@ parsePath = (str) ->
   return [] if str is ''
   str = '.' + str if str.charAt(0) isnt '.'
   path = []
-  while /^(\.(\w+)|\[(\d+)\])/.test(str)
-    p = RegExp.$2 or RegExp.$3
+  while /^(\[(\d+)\]|\[\'([^']+)\'\]|\.([a-zA-Z]\w+))/.test(str)
+    p = RegExp.$2 or RegExp.$3 or RegExp.$4
     str = str.replace(RegExp.$1, "")
     path.push p
   return path
+
+#place on window
+if process.browser
+  window.pnodeStore = module.exports

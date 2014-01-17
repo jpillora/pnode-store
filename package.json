@@ -1,18 +1,22 @@
 {
-  "name": "peer-store",
+  "name": "pnode-store",
   "version": "0.1.2",
   "description": "Maintain a synchronized data store between connected Node.js applications",
-  "main": "out/index.js",
+  "main": "out/store.js",
   "scripts": {
     "start": "node node_modules/coffee-script/bin/coffee -w -b -o out/ src/",
+    "compile": "node node_modules/coffee-script/bin/coffee -b -o out/ src/",
     "test": "node node_modules/mocha/bin/mocha",
-    "prepublish": "node node_modules/coffee-script/bin/coffee -b -o out/ src/"
+    "browserify": "node node_modules/.bin/browserify out/store.js > browser/pnode-store.debug.js",
+    "compress": "cat browser/pnode-store.debug.js | node node_modules/.bin/uglifyjs --mangle --compress > browser/pnode-store.js",
+    "prepublish": "npm run-script compile && npm run-script browserify && npm run-script compress"
   },
   "repository": {
     "type": "git",
     "url": "https://jpillora@github.com/jpillora/node-peer-store.git"
   },
   "keywords": [
+    "pnode-plugin",
     "p2p",
     "peer",
     "peer-to-peer",
@@ -29,19 +33,21 @@
   "license": "MIT",
   "readmeFilename": "README.md",
   "dependencies": {
-    "connect": "~2.7.9",
-    "mkdirp": "~0.3.5",
-    "lru-cache": "~2.3.0",
-    "lodash": "~1.3.1",
-    "async": "~0.2.9"
+    "uglifyjs": "~2.3.6"
+  },
+  "peerDependencies": {
+    "pnode": "latest"
   },
   "devDependencies": {
+    "pnode": "latest",
     "coffee-script": "~1.6.3",
     "chai": "~1.7.2",
     "async": "~0.2.8",
     "supervisor": "~0.5.2",
     "express": "~3.2.4",
     "colors": "~0.6.0-1",
-    "mocha": "~1.12.0"
+    "mocha": "~1.12.0",
+    "browserify": "~3.20.0",
+    "uglify-js": "~2.4.9"
   }
 }

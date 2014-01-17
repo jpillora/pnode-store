@@ -5,11 +5,10 @@ var PeerStore = require('../../');
 var receives = 0;
 
 //store
-var store = eg.create();
-var foo = store.bucket('foo');
+var store = eg.create('http://localhost:8000',[], 'foo');
 
 //receive!
-foo.on('set', function(k) {
+store.on('set', function(k) {
   receives++;
 });
 
