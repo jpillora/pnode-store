@@ -17,10 +17,11 @@ class Store extends EventEmitter
     @opts = opts
     @opts.read ?= true
     @opts.write ?= true
+    @opts.debug ?= false
 
-    @on 'change', (path, val) ->
-      console.log "pnode-store: change: '%s':", path, val
-
+    if @opts.debug
+      @on 'change', (path, val) ->
+        console.log "pnode-store: change: '%s':", path, val
 
     @channel = "_store-#{opts.name}"
     @obj = {}
@@ -29,7 +30,7 @@ class Store extends EventEmitter
     if @opts.write
       exposed = {}
       exposed[opts.name] = @peer.exposeDynamic =>
-        console.log "sending curr", JSON.stringify @obj,null,2
+        # console.log "sending curr", JSON.stringify @obj,null,2
         @obj
       @peer.expose _store: exposed
 
@@ -41,10 +42,8 @@ class Store extends EventEmitter
         obj = remote._store?[opts.name]
         return unless typeof obj is 'object'
         return if preloads.indexOf(obj) >= 0
-        
         #silently merge existing data
-        for k,v of obj
-          @set pathify(k), v, true, true
+        @set [], obj, true
         preloads.push obj
         return
 
@@ -58,60 +57,65 @@ class Store extends EventEmitter
       @peer.on 'remote', preload
 
       #subscribe to subsequent changes
-      @peer.subscribe @channel, (doDelete, pathStr, value, merge) =>
-        @set pathStr, (if doDelete then undefined else value), merge, true
+      @peer.subscribe @channel, (path, doDelete, value) =>
+        @set path, (if doDelete then undefined else value), true
 
     return
 
   object: ->
     @obj
 
-  set: (pathStr, value, merge, silent) ->
+  set: (path, value, silent) ->
 
-    #dont bother merging into an empty object
-    if @fresh
-      merge = false
-      @fresh = false
+    unless path instanceof Array
+      throw new Error("set(path) must be an array")
 
-    #merge instead of replace
-    if merge and typeof value is 'object'
-      for k,v of value
-        k = pathify(k)
-        @set pathStr+(if pathStr and k[0] isnt "[" then "." else "")+k, v, true, silent
-      return
+    if path.length is 0
+      if typeof value is 'object'
+        for k,v of value
+          @set [k], v
+        return
+      else
+        throw new Error("set(path, #{value}) array must be at least one property long");
 
-    #replace 
+    @setAcc @obj, [], path, value, silent
+
+  setAcc: (obj, used, path, value, silent) ->
+
+    prop = path.shift()
+    unless prop
+      throw new Error "property missing ([#{used.join(',')}])"
+    used.push prop
+
+    if path.length > 0 and typeof obj[prop] is 'object'
+      return @setAcc obj[prop], used, path, value, silent
+
     doDelete = value is undefined
 
-    path = parsePath pathStr
-    #at least 1 path entry required
-    if path.length is 0
-      throw new Error "Invalid path: '#{pathStr}'"
-    prop = path.pop()
-
-    #derefernce path, while creating missing props
-    o = deref @obj, path, not doDelete
-    return unless o
-
     if doDelete
-      delete o[prop]
+      delete obj[prop]
     else
-      o[prop] = value
+      obj[prop] = value
 
     if not silent and @opts.write
-      @peer.publish @channel, doDelete, pathStr, value, merge
+      @peer.publish @channel, used, doDelete, value
 
-    @emit 'change', pathStr, value
+    @emit 'change', used, value
 
-  del: (pathStr) ->
-    return @set pathStr
+  del: (path) ->
+    return @set path
 
-  get: (pathStr) ->
-    return deref @obj, parsePath pathStr
+  get: (path) ->
+    o = @obj
+    while path.length
+      o = o[path.shift()]
+    return o
 
 # ===============
 # helpers
 # ===============
+
+dotOp = (path) ->
 
 deref = (o, pathArr, create) ->
   while pathArr.length
