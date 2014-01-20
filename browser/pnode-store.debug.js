@@ -378,7 +378,7 @@ Store = (function(_super) {
   __extends(Store, _super);
 
   function Store(peer, opts) {
-    var exposed, preload, preloads,
+    var exposed, preload, preloads, _base, _base1,
       _this = this;
     this.peer = peer;
     if (typeof opts === 'string') {
@@ -387,43 +387,53 @@ Store = (function(_super) {
       };
     }
     this.opts = opts;
+    if ((_base = this.opts).read == null) {
+      _base.read = true;
+    }
+    if ((_base1 = this.opts).write == null) {
+      _base1.write = true;
+    }
     this.channel = "_store-" + opts.name;
-    this.fresh = true;
     this.obj = {};
-    exposed = {};
-    exposed[opts.name] = this.peer.exposeDynamic(function() {
-      return _this.obj;
-    });
-    this.peer.expose({
-      _store: exposed
-    });
-    preloads = [];
-    preload = function(remote) {
-      var k, obj, v, _ref;
-      obj = (_ref = remote._store) != null ? _ref[opts.name] : void 0;
-      if (typeof obj !== 'object') {
-        return;
-      }
-      if (preloads.indexOf(obj) >= 0) {
-        return;
-      }
-      for (k in obj) {
-        v = obj[k];
-        _this.set(pathify(k), v, true, true);
-      }
-      preloads.push(obj);
-    };
-    if (this.peer.name === 'Client') {
-      this.peer.server(preload);
-    } else if (this.peer.name === 'Server' || this.peer.name === 'LocalPeer') {
-      this.peer.all(function(remotes) {
-        return remotes.forEach(preload);
+    if (this.opts.write) {
+      exposed = {};
+      exposed[opts.name] = this.peer.exposeDynamic(function() {
+        return _this.obj;
+      });
+      this.peer.expose({
+        _store: exposed
       });
     }
-    this.peer.on('remote', preload);
-    this.peer.subscribe(this.channel, function(doDelete, pathStr, value, merge) {
-      return _this.set(pathStr, (doDelete ? void 0 : value), merge, true);
-    });
+    if (this.opts.read) {
+      preloads = [];
+      preload = function(remote) {
+        var k, obj, v, _ref;
+        obj = (_ref = remote._store) != null ? _ref[opts.name] : void 0;
+        if (typeof obj !== 'object') {
+          return;
+        }
+        if (preloads.indexOf(obj) >= 0) {
+          return;
+        }
+        for (k in obj) {
+          v = obj[k];
+          _this.set(pathify(k), v, true, true);
+        }
+        preloads.push(obj);
+      };
+      if (this.peer.name === 'Client') {
+        this.peer.server(preload);
+      } else if (this.peer.name === 'Server' || this.peer.name === 'LocalPeer') {
+        this.peer.all(function(remotes) {
+          return remotes.forEach(preload);
+        });
+      }
+      this.peer.on('remote', preload);
+      this.peer.subscribe(this.channel, function(doDelete, pathStr, value, merge) {
+        return _this.set(pathStr, (doDelete ? void 0 : value), merge, true);
+      });
+    }
+    return;
   }
 
   Store.prototype.object = function() {
@@ -439,7 +449,8 @@ Store = (function(_super) {
     if (merge && typeof value === 'object') {
       for (k in value) {
         v = value[k];
-        this.set(pathStr + (pathStr ? "" : ".") + pathify(k), v, true, silent);
+        k = pathify(k);
+        this.set(pathStr + (pathStr && k[0] !== "[" ? "." : "") + k, v, true, silent);
       }
       return;
     }
@@ -458,7 +469,7 @@ Store = (function(_super) {
     } else {
       o[prop] = value;
     }
-    if (!silent) {
+    if (!silent && this.opts.write) {
       this.peer.publish(this.channel, doDelete, pathStr, value, merge);
     }
     return this.emit('change', pathStr, value);

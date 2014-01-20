@@ -15,42 +15,53 @@ class Store extends EventEmitter
       opts = name: opts
 
     @opts = opts
-    @channel = "_store-#{opts.name}"
+    @opts.read ?= true
+    @opts.write ?= true
 
-    @fresh = true
+    @on 'change', (path, val) ->
+      console.log "pnode-store: change: '%s':", path, val
+
+
+    @channel = "_store-#{opts.name}"
     @obj = {}
 
     #dynamic expose the initial state
-    exposed = {}
-    exposed[opts.name] = @peer.exposeDynamic => @obj
-    @peer.expose _store: exposed
+    if @opts.write
+      exposed = {}
+      exposed[opts.name] = @peer.exposeDynamic =>
+        console.log "sending curr", JSON.stringify @obj,null,2
+        @obj
+      @peer.expose _store: exposed
 
-    #only preload each remote once
-    preloads = []
-    
-    preload = (remote) =>
-      obj = remote._store?[opts.name]
-      return unless typeof obj is 'object'
-      return if preloads.indexOf(obj) >= 0
+    #update store from peers
+    if @opts.read
+      #only preload each remote once
+      preloads = []
+      preload = (remote) =>
+        obj = remote._store?[opts.name]
+        return unless typeof obj is 'object'
+        return if preloads.indexOf(obj) >= 0
+        
+        #silently merge existing data
+        for k,v of obj
+          @set pathify(k), v, true, true
+        preloads.push obj
+        return
 
-      #silently merge existing data
-      for k,v of obj
-        @set pathify(k), v, true, true
-      preloads.push obj
-      return
+      #grab existing remotes
+      if @peer.name is 'Client'
+        @peer.server preload
+      else if @peer.name is 'Server' or @peer.name is 'LocalPeer'
+        @peer.all (remotes) -> remotes.forEach preload
 
-    #grab existing remotes
-    if @peer.name is 'Client'
-      @peer.server preload
-    else if @peer.name is 'Server' or @peer.name is 'LocalPeer'
-      @peer.all (remotes) -> remotes.forEach preload
+      #grab new prefilled remotes
+      @peer.on 'remote', preload
 
-    #grab new prefilled remotes
-    @peer.on 'remote', preload
+      #subscribe to subsequent changes
+      @peer.subscribe @channel, (doDelete, pathStr, value, merge) =>
+        @set pathStr, (if doDelete then undefined else value), merge, true
 
-    #subscribe to subsequent changes
-    @peer.subscribe @channel, (doDelete, pathStr, value, merge) =>
-      @set pathStr, (if doDelete then undefined else value), merge, true
+    return
 
   object: ->
     @obj
@@ -65,7 +76,8 @@ class Store extends EventEmitter
     #merge instead of replace
     if merge and typeof value is 'object'
       for k,v of value
-        @set pathStr+(if pathStr then "" else ".")+pathify(k), v, true, silent
+        k = pathify(k)
+        @set pathStr+(if pathStr and k[0] isnt "[" then "." else "")+k, v, true, silent
       return
 
     #replace 
@@ -86,7 +98,9 @@ class Store extends EventEmitter
     else
       o[prop] = value
 
-    @peer.publish @channel, doDelete, pathStr, value, merge unless silent
+    if not silent and @opts.write
+      @peer.publish @channel, doDelete, pathStr, value, merge
+
     @emit 'change', pathStr, value
 
   del: (pathStr) ->
