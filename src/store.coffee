@@ -32,9 +32,10 @@ class Store extends EventEmitter
       obj = remote._store?[opts.name]
       return unless typeof obj is 'object'
       return if preloads.indexOf(obj) >= 0
+
       #silently merge existing data
       for k,v of obj
-        @set k, v, true, true
+        @set pathify(k), v, true, true
       preloads.push obj
       return
 
@@ -55,7 +56,7 @@ class Store extends EventEmitter
     @obj
 
   set: (pathStr, value, merge, silent) ->
-    
+
     #dont bother merging into an empty object
     if @fresh
       merge = false
@@ -64,13 +65,7 @@ class Store extends EventEmitter
     #merge instead of replace
     if merge and typeof value is 'object'
       for k,v of value
-        if /^\d+$/.test k
-          k = "[#{k}]"
-        else if /^\d/.test(k) or /[^\w]/.test k
-          k = "['#{k}']"
-        else if pathStr
-          k = "." + k
-        @set pathStr+k, v, true, silent
+        @set pathStr+(if pathStr then "" else ".")+pathify(k), v, true, silent
       return
 
     #replace 
@@ -78,8 +73,8 @@ class Store extends EventEmitter
 
     path = parsePath pathStr
     #at least 1 path entry required
-    return if path.length is 0
-
+    if path.length is 0
+      throw new Error "Invalid path: '#{pathStr}'"
     prop = path.pop()
 
     #derefernce path, while creating missing props
@@ -113,6 +108,14 @@ deref = (o, pathArr, create) ->
     o = o[prop]
   return o
 
+pathify = (prop) ->
+  return if /^\d+$/.test prop
+    "[#{prop}]"
+  else if /^\d/.test(prop) or /[^\w]/.test(prop)
+    "['#{prop}']"
+  else
+    prop
+
 parse = (str) ->
   eq = str.indexOf("=")
   return  if eq is -1 #invalid
@@ -130,7 +133,7 @@ parse = (str) ->
 
 parsePath = (str) ->
   return [] if str is ''
-  str = '.' + str if str.charAt(0) isnt '.'
+  str = '.' + str unless /^(\.|\[)/.test str
   path = []
   while /^(\[(\d+)\]|\[\'([^']+)\'\]|\.([a-zA-Z]\w+))/.test(str)
     p = RegExp.$2 or RegExp.$3 or RegExp.$4
